@@ -300,25 +300,40 @@ python cerebras_code_scanner.py path/to/your/project/ --max-tokens 8000
 
 ## TEST CASES: 
 1. Self.
-
-Feedback: 
-  docs/self_scan_improvement_1.txt	
-  docs/self_scan_result_1.txt
-  docs/self_scan_improvement_2.txt	
-  docs/self_scan_result_2.txt
+    Feedback: 
+    ```
+      docs/self_scan_improvement_1.txt	
+      docs/self_scan_result_1.txt
+      docs/self_scan_improvement_2.txt	
+      docs/self_scan_result_2.txt
+    ```
 
 2. Azure sql api.
 https://github.com/Azure-Samples/azure-sql-db-python-rest-api
-
-Feedback:
-  docs/azure-sql-db-python-rest-api.txt
+    Feedback:
+    ```
+      docs/azure-sql-db-python-rest-api.txt
+    ```
 
 3. Bookclub webapp.
 https://github.com/ms4985/BookClubWebApp.git
+    Feedback:
+    ```
+      docs/BookClubWebApp.txt
+    ```
 
-Feedback:
-  docs/BookClubWebApp.txt
+## TODO Next
 
+1. **Performance Benchmarking**: Compare analysis quality and performance metrics among:
+   - **Leading Proprietary Models**: OpenAI GPT-4, Anthropic Claude 3
+   - **Leading Open Models**: Meta Llama 3, Mistral Large
+   - **Code Analysis Services**: GitHub Copilot, Amazon CodeWhisperer
+
+2. **Multi-Language Support**: Extend the platform to support additional languages:
+   - **General-Purpose Languages**: Java, JavaScript/TypeScript, Go, Rust, C/C++
+   - **Domain-Specific Languages**: Terraform, CloudFormation, Dockerfile
+   - **System Configurations**: Kubernetes YAML, Nginx configs, SSH configs, Apache configs
+   - **Build Scripts**: GitHub Actions, Jenkins, CircleCI
 
 ## License
 
