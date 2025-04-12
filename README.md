@@ -1,5 +1,13 @@
 # AI-Powered Code Security & Performance Scanner
 
+## Project Origin
+
+This project was created during the [Cerebras Llama 4 Hackathon](https://lu.ma/eihdh2gd?tk=GfcyGK) on April 12, 2024. 
+
+Inspired by Cerebras's performance and Llama 4's capabilities, this scanner leverages prompt engineering to extract code insights that traditional rule-based tools cannot detect, enabling deeper security and performance analysis.
+
+---
+
 An AI-powered security and performance scanner for Python and SQL codebases, leveraging Cerebras and Llama 4 to identify application-level vulnerabilities and performance issues.
 
 ## Features
