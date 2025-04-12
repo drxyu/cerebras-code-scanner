@@ -167,6 +167,110 @@ def analyze_code_performance(code_snippet, model="llama-4-scout-17b-16e-instruct
         logger.error(f"Error analyzing code: {e}")
         return None
 
+def analyze_sql_security(sql_code, model="llama-4-scout-17b-16e-instruct"):
+    """
+    Analyze SQL code for security vulnerabilities using Cerebras AI.
+    
+    Args:
+        sql_code (str): The SQL code to analyze
+        model (str): The Cerebras model to use
+        
+    Returns:
+        dict: The AI's analysis of security vulnerabilities
+    """
+    client = initialize_cerebras_client()
+    
+    prompt = f"""
+    You are a SQL security expert. Analyze the following SQL code for security vulnerabilities,
+    focusing on:
+    1. SQL injection vulnerabilities
+    2. Privilege escalation risks
+    3. Insecure data access patterns
+    4. Improper access controls
+    5. Data exposure risks
+    6. Unsafe dynamic SQL
+    7. Improper error handling
+    
+    For each issue found, explain the vulnerability and suggest a fix.
+    
+    SQL CODE TO ANALYZE:
+    ```sql
+    {sql_code}
+    ```
+    """
+    
+    try:
+        chat_completion = client.chat.completions.create(
+            messages=[
+                {
+                    "role": "system",
+                    "content": "You are a SQL security expert specializing in database security vulnerabilities."
+                },
+                {
+                    "role": "user",
+                    "content": prompt,
+                }
+            ],
+            model=model,
+        )
+        
+        return chat_completion
+    except Exception as e:
+        logger.error(f"Error analyzing SQL code: {e}")
+        return None
+
+def analyze_sql_performance(sql_code, model="llama-4-scout-17b-16e-instruct"):
+    """
+    Analyze SQL code for performance issues using Cerebras AI.
+    
+    Args:
+        sql_code (str): The SQL code to analyze
+        model (str): The Cerebras model to use
+        
+    Returns:
+        dict: The AI's analysis of performance issues
+    """
+    client = initialize_cerebras_client()
+    
+    prompt = f"""
+    You are a SQL performance optimization expert. Analyze the following SQL code for performance issues,
+    focusing on:
+    1. Inefficient queries (lack of proper indexing hints)
+    2. Suboptimal join techniques
+    3. Expensive operations (full table scans, cartesian products)
+    4. Missing indexes or constraints
+    5. Improper use of temporary tables or views
+    6. Redundant operations
+    7. Potential execution bottlenecks
+    
+    For each issue found, explain the performance problem and suggest an optimization.
+    
+    SQL CODE TO ANALYZE:
+    ```sql
+    {sql_code}
+    ```
+    """
+    
+    try:
+        chat_completion = client.chat.completions.create(
+            messages=[
+                {
+                    "role": "system",
+                    "content": "You are a SQL performance optimization expert."
+                },
+                {
+                    "role": "user",
+                    "content": prompt,
+                }
+            ],
+            model=model,
+        )
+        
+        return chat_completion
+    except Exception as e:
+        logger.error(f"Error analyzing SQL code: {e}")
+        return None
+
 def should_ignore_path(path, ignore_patterns):
     """
     Check if a path should be ignored based on .scanignore patterns.
@@ -222,14 +326,35 @@ def should_scan_file(file_path, config=None, ignore_patterns=None):
     # Normalize path to prevent path traversal attacks
     file_path = os.path.abspath(os.path.normpath(file_path))
     
-    if not file_path.endswith('.py'):
+    # Check if file is a supported type
+    if not (file_path.endswith('.py') or file_path.endswith('.sql')):
         return False
         
     if config is None:
         config = load_config()
     
+    # Debug file path
+    filename = os.path.basename(file_path)
+    
+    # OVERRIDE: Force-include specific directories regardless of .scanignore
+    # Adjust this list based on directories you always want to scan
+    force_include_dirs = [
+        "azure-sql-db-python-rest-api"
+    ]
+    
+    for include_dir in force_include_dirs:
+        if include_dir in file_path:
+            logger.info(f"Force-including {file_path} (overrides .scanignore)")
+            return True
+    
+    # Log info about this file only if it's in specific directories we're debugging
+    if "azure-sql-db-python-rest-api" in file_path:
+        logger.info(f"Evaluating file for scanning: {file_path}")
+    
     # Check against .scanignore patterns first - silently skip matches
     if ignore_patterns and should_ignore_path(file_path, ignore_patterns):
+        if "azure-sql-db-python-rest-api" in file_path:
+            logger.info(f"File {filename} matched a pattern in .scanignore")
         return False
     
     # Check file size - added back with a higher reasonable limit
@@ -256,7 +381,7 @@ def should_scan_file(file_path, config=None, ignore_patterns=None):
 
 def scan_directory(directory_path, model="llama-4-scout-17b-16e-instruct"):
     """
-    Scan all Python files in a directory and its subdirectories.
+    Scan all Python and SQL files in a directory and its subdirectories.
     
     Args:
         directory_path (str): Path to the directory to scan
@@ -267,25 +392,38 @@ def scan_directory(directory_path, model="llama-4-scout-17b-16e-instruct"):
     """
     config = load_config()
     results = {}
+    files_found = 0
+    files_skipped = 0
+    files_scanned = 0
     
     # Load patterns from .scanignore
     ignore_patterns = load_scanignore()
     
-    # Get all Python files recursively
+    # Get all Python and SQL files recursively
+    logger.info(f"Recursively searching for Python and SQL files in {directory_path}...")
     for root, _, files in os.walk(directory_path):
         for file in files:
-            if file.endswith('.py'):
+            is_python = file.endswith('.py')
+            is_sql = file.endswith('.sql')
+            
+            if is_python or is_sql:
+                files_found += 1
                 file_path = os.path.join(root, file)
                 
                 if should_scan_file(file_path, config, ignore_patterns):
+                    files_scanned += 1
                     logger.info(f"Scanning {file_path}...")
                     
                     try:
                         with open(file_path, 'r', encoding='utf-8') as f:
                             code = f.read()
-                            
-                        security_analysis = analyze_code_security(code, model)
-                        performance_analysis = analyze_code_performance(code, model)
+                        
+                        if is_python:
+                            security_analysis = analyze_code_security(code, model)
+                            performance_analysis = analyze_code_performance(code, model)
+                        elif is_sql:
+                            security_analysis = analyze_sql_security(code, model)
+                            performance_analysis = analyze_sql_performance(code, model)
                         
                         results[file_path] = {
                             'security': security_analysis.choices[0].message.content if security_analysis else "Failed to analyze security issues",
@@ -297,6 +435,16 @@ def scan_directory(directory_path, model="llama-4-scout-17b-16e-instruct"):
                             'security': f"Error: {str(e)}",
                             'performance': f"Error: {str(e)}"
                         }
+                else:
+                    files_skipped += 1
+    
+    logger.info(f"Scan summary: Found {files_found} Python/SQL files, scanned {files_scanned}, skipped {files_skipped}")
+    
+    if files_found == 0:
+        logger.warning(f"No Python (.py) or SQL (.sql) files found in {directory_path}")
+    elif files_skipped == files_found:
+        logger.warning(f"All {files_found} files were skipped due to filters")
+        logger.info("To see which files were skipped, check the .scanignore file or increase log verbosity")
     
     return results
 

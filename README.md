@@ -1,10 +1,10 @@
-# AI-Powered Python Security & Performance Scanner
+# AI-Powered Code Security & Performance Scanner
 
-An AI-powered security and performance scanner for Python backend codebases, leveraging Cerebras and Llama 4 to identify application-level vulnerabilities and performance issues.
+An AI-powered security and performance scanner for Python and SQL codebases, leveraging Cerebras and Llama 4 to identify application-level vulnerabilities and performance issues.
 
 ## Features
 
-- **Security Analysis**: Detects common security vulnerabilities in Python code.
+- **Python Security Analysis**: Detects common security vulnerabilities in Python code.
   - SQL injection vulnerabilities
   - Command injection vulnerabilities
   - Path traversal issues
@@ -13,7 +13,7 @@ An AI-powered security and performance scanner for Python backend codebases, lev
   - Hardcoded secrets
   - Insecure use of cryptographic functions
 
-- **Performance Analysis**: Identifies performance bottlenecks and inefficiencies.
+- **Python Performance Analysis**: Identifies performance bottlenecks and inefficiencies.
   - Inefficient algorithms or data structures
   - Repeated computations that could be cached
   - Unnecessary resource usage
@@ -21,13 +21,31 @@ An AI-powered security and performance scanner for Python backend codebases, lev
   - Memory leaks or excessive memory usage
   - Threading or concurrency issues
 
+- **SQL Security Analysis**: Identifies security issues in SQL code.
+  - SQL injection vulnerabilities
+  - Privilege escalation risks
+  - Insecure data access patterns
+  - Improper access controls
+  - Data exposure risks
+  - Unsafe dynamic SQL
+  - Improper error handling
+
+- **SQL Performance Analysis**: Detects performance problems in SQL queries.
+  - Inefficient queries (lack of proper indexing hints)
+  - Suboptimal join techniques
+  - Expensive operations (full table scans, cartesian products)
+  - Missing indexes or constraints
+  - Improper use of temporary tables or views
+  - Redundant operations
+  - Potential execution bottlenecks
+
 ## How It Works
 
 ### Architecture & Workflow
 
 The code scanner operates through a layered architecture:
 
-1. **File Discovery Layer**: Recursively walks through directories to find Python files for analysis.
+1. **File Discovery Layer**: Recursively walks through directories to find Python and SQL files for analysis.
 2. **Filtering Layer**: Applies configurable rules to exclude certain files and directories.
 3. **Analysis Layer**: Sends code to Cerebras-hosted Llama 4 models for deep inspection.
 4. **Reporting Layer**: Organizes and displays findings in a structured format.
@@ -53,7 +71,7 @@ The tool leverages Large Language Models (LLMs) for code understanding:
 The scanning process follows these steps:
 
 1. **Configuration Loading**: The scanner reads settings from `config.yaml` or environment variables.
-2. **File Discovery**: When scanning a directory, the tool recursively identifies all Python files.
+2. **File Discovery**: When scanning a directory, the tool recursively identifies all Python and SQL files.
 3. **Filtering**: Files are filtered based on exclusion rules (directories to skip, file patterns to ignore).
 4. **Content Reading**: Each file's content is read into memory.
 5. **Security Analysis**: Code is sent to Cerebras with a security-focused prompt.
@@ -103,19 +121,21 @@ This approach combines the contextual understanding of large language models wit
 ### Scan a Single File
 
 ```
-python cerebras_code_scanner.py path/to/your/python_file.py
+python cerebras_code_scanner.py path/to/your/file.py
+# or
+python cerebras_code_scanner.py path/to/your/query.sql
 ```
 
 ### Scan an Entire Directory
 
-The scanner can also analyze all Python files in a directory and its subdirectories:
+The scanner can also analyze all Python and SQL files in a directory and its subdirectories:
 
 ```
 python cerebras_code_scanner.py path/to/your/project/
 ```
 
 This will:
-- Recursively find all Python files in the directory
+- Recursively find all Python (.py) and SQL (.sql) files in the directory
 - Skip files in excluded directories (configurable in config.yaml)
 - Skip files that match excluded patterns (configurable in config.yaml)
 - Skip files larger than the maximum size (configurable in config.yaml)
@@ -164,7 +184,7 @@ The scanner can be configured using the `config.yaml` file:
 
 When determining which files to scan, the scanner applies exclusion rules in the following order:
 
-1. File extension check (only `.py` files are scanned)
+1. File extension check (only `.py` and `.sql` files are scanned)
 2. Patterns from `.scanignore` (global setting)
 3. File size limit from config.yaml
 4. Excluded directories from config.yaml
