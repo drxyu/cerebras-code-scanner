@@ -1,0 +1,956 @@
+
+================================================================================
+FILE: /Users/admin/Desktop/hackathon-project/data/azure-sql-db-python-rest-api/simple-app.py
+================================================================================
+
+
+--------------------------------------------------
+SECURITY ANALYSIS:
+--------------------------------------------------
+
+**Security Analysis Report**
+==========================
+
+### 1. SQL Injection Vulnerabilities
+
+*   **Vulnerability:** The code uses parameterized queries, which is good. However, the `json.dumps(customer)` could potentially lead to a SQL injection vulnerability if the `customer` dictionary contains user-controlled data.
+*   **Fix:** Ensure that the `customer` dictionary only contains validated and sanitized data. Consider using a whitelist approach to only allow specific keys and values.
+
+```python
+# Validate and sanitize customer data
+allowed_keys = ['CustomerID']
+customer = {key: value for key, value in customer.items() if key in allowed_keys}
+cursor.execute("EXEC web.get_customer ?", json.dumps(customer))
+```
+
+### 2. Command Injection Vulnerabilities
+
+*   **Vulnerability:** None found. The code does not execute any system commands.
+
+### 3. Path Traversal Issues
+
+*   **Vulnerability:** None found. The code does not handle file paths or URLs that could be vulnerable to path traversal attacks.
+
+### 4. Authentication and Authorization Flaws
+
+*   **Vulnerability:** The code does not implement any authentication or authorization mechanisms, making it vulnerable to unauthorized access.
+*   **Fix:** Implement authentication and authorization using a library like Flask-Login or Flask-Security. Ensure that only authorized users can access sensitive data.
+
+```python
+from flask_login import LoginManager, UserMixin, login_required
+
+# Initialize login manager
+login_manager = LoginManager()
+login_manager.init_app(app)
+
+# Define a user class
+class User(UserMixin):
+    def __init__(self, id):
+        self.id = id
+
+# Protect the Customer class with authentication
+class Customer(Resource):
+    @login_required
+    def get(self, customer_id):
+        # ...
+```
+
+### 5. Improper Error Handling and Information Leakage
+
+*   **Vulnerability:** The code does not handle errors properly, which could lead to information leakage.
+*   **Fix:** Implement error handling using try-except blocks and return generic error messages.
+
+```python
+try:
+    # ...
+except Exception as e:
+    return {'error': 'Internal Server Error'}, 500
+```
+
+### 6. Hardcoded Secrets
+
+*   **Vulnerability:** The code uses an environment variable `SQLAZURECONNSTR_WWIF` to store the database connection string, which is good. However, it's not clear if this variable is properly secured.
+*   **Fix:** Ensure that the environment variable is properly secured and not accessible to unauthorized users. Consider using a secrets management tool like HashiCorp's Vault.
+
+### 7. Insecure Use of Cryptographic Functions
+
+*   **Vulnerability:** None found. The code does not use any cryptographic functions.
+
+**Additional Recommendations:**
+
+*   Consider using an ORM library like SQLAlchemy to interact with the database, which can help prevent SQL injection vulnerabilities.
+*   Use a library like Flask-Talisman to enable security features like SSL/TLS and security headers.
+*   Regularly update dependencies to ensure that known vulnerabilities are patched.
+
+**Updated Code:**
+```python
+import sys
+import os
+from flask import Flask
+from flask_restful import reqparse, Api, Resource
+import json
+import pyodbc
+from flask_login import LoginManager, UserMixin, login_required
+
+# Initialize Flask
+app = Flask(__name__)
+
+# Setup Flask Restful framework
+api = Api(app)
+parser = reqparse.RequestParser()
+parser.add_argument('customer')
+
+# Initialize login manager
+login_manager = LoginManager()
+login_manager.init_app(app)
+
+# Define a user class
+class User(UserMixin):
+    def __init__(self, id):
+        self.id = id
+
+# Create connection to Azure SQL
+conn = pyodbc.connect(os.environ['SQLAZURECONNSTR_WWIF'])
+
+# Customer Class
+class Customer(Resource):
+    @login_required
+    def get(self, customer_id):
+        try:
+            customer = {"CustomerID": customer_id}
+            allowed_keys = ['CustomerID']
+            customer = {key: value for key, value in customer.items() if key in allowed_keys}
+            cursor = conn.cursor()
+            cursor.execute("EXEC web.get_customer ?", json.dumps(customer))
+            result = json.loads(cursor.fetchone()[0])
+            cursor.close()
+            return result, 200
+        except Exception as e:
+            return {'error': 'Internal Server Error'}, 500
+
+# Create API route to defined Customer class
+api.add_resource(Customer, '/customer', '/customer/<customer_id>')
+
+# Start App
+if __name__ == '__main__':
+    app.run()
+```
+
+--------------------------------------------------
+PERFORMANCE ANALYSIS:
+--------------------------------------------------
+
+Performance Analysis and Optimization Suggestions
+=====================================================
+
+### 1. Inefficient Algorithms or Data Structures
+
+*   **Problem:** The current implementation uses a database query for every GET request to the `/customer` or `/customer/<customer_id>` endpoint. This approach can lead to performance issues if the number of requests increases.
+*   **Optimization:** Consider implementing caching using a library like Flask-Caching or Redis. This can store the results of frequent queries, reducing the load on the database.
+
+### 2. Repeated Computations that Could be Cached
+
+*   **Problem:** The `conn` object is created only once when the application starts, but it's not thread-safe. In a multi-threaded environment, this can lead to connection issues.
+*   **Optimization:** Use a connection pool like `pyodbc.pool` or `flask-sqlalchemy` to manage database connections. This can improve performance and handle multiple requests concurrently.
+
+### 3. Unnecessary Resource Usage
+
+*   **Problem:** The `cursor` object is not closed in case of an exception, which can lead to resource leaks.
+*   **Optimization:** Use a `try-finally` block or a `with` statement to ensure that the `cursor` object is closed even if an exception occurs.
+
+### 4. Database Query Inefficiencies
+
+*   **Problem:** The SQL query is executed using `EXEC web.get_customer ?`, which may not be the most efficient approach. The query is executed as a stored procedure, and the parameter is passed as a JSON string.
+*   **Optimization:** Consider using a more straightforward SQL query or stored procedure that takes the `customer_id` as a parameter, reducing the overhead of JSON serialization and deserialization.
+
+### 5. Memory Leaks or Excessive Memory Usage
+
+*   **Problem:** The `result` variable stores the entire query result in memory. If the result set is large, this can lead to excessive memory usage.
+*   **Optimization:** Use a streaming approach to process the query results, such as using `cursor.fetchmany()` or `cursor.fetchone()` in a loop, to reduce memory usage.
+
+### 6. Threading or Concurrency Issues
+
+*   **Problem:** The `app.run()` method runs the Flask development server, which is not designed for production use and can lead to performance issues under concurrent loads.
+*   **Optimization:** Use a WSGI server like Gunicorn or uWSGI, which can handle multiple requests concurrently and is designed for production use.
+
+Updated Code with Optimizations
+------------------------------
+
+```python
+import os
+from flask import Flask
+from flask_restful import reqparse, Api, Resource
+import json
+import pyodbc
+from flask_caching import Cache
+
+app = Flask(__name__)
+api = Api(app)
+parser = reqparse.RequestParser()
+parser.add_argument('customer')
+
+# Configure caching
+cache = Cache(app, config={'CACHE_TYPE': 'SimpleCache'})
+
+# Create connection to Azure SQL using a connection pool
+conn_pool = pyodbc.pool.ThreadedConnectionPool(
+    1, 10, os.environ['SQLAZURECONNSTR_WWIF']
+)
+
+# Customer Class
+class Customer(Resource):
+    def get(self, customer_id):
+        # Use caching to store query results
+        result = cache.get(customer_id)
+        if result is None:
+            conn = conn_pool.getconn()
+            try:
+                cursor = conn.cursor()
+                # Use a more straightforward SQL query
+                cursor.execute("SELECT * FROM customers WHERE CustomerID = ?", customer_id)
+                result = cursor.fetchone()
+                # Store the result in the cache
+                cache.set(customer_id, result)
+            finally:
+                conn_pool.putconn(conn)
+        return result, 200
+
+# Create API route to defined Customer class
+api.add_resource(Customer, '/customer', '/customer/<customer_id>')
+
+# Start App with Gunicorn
+if __name__ == '__main__':
+    from gevent.pywsgi import WSGIServer
+    http_server = WSGIServer(('', 5000), app)
+    http_server.serve_forever()
+```
+
+Note that this updated code is just an example and may require further modifications to fit your specific use case. Additionally, consider using a more robust caching solution like Redis or Memcached, and a production-ready WSGI server like Gunicorn or uWSGI.
+
+================================================================================
+FILE: /Users/admin/Desktop/hackathon-project/data/azure-sql-db-python-rest-api/app.py
+================================================================================
+
+
+--------------------------------------------------
+SECURITY ANALYSIS:
+--------------------------------------------------
+
+# Security Analysis Report
+
+## 1. SQL Injection Vulnerabilities
+
+The `executeQueryJSON` method in the `ConnectionManager` class is vulnerable to SQL injection attacks. The `procedure` parameter is directly used in the SQL query without any sanitization or parameterization.
+
+**Vulnerability:** 
+```python
+cursor.execute(f"EXEC {procedure} ?", json.dumps(payload))
+```
+**Fix:** 
+Use parameterized queries or stored procedures to prevent SQL injection. Since stored procedures are being used, ensure that the `procedure` parameter is validated and sanitized.
+
+```python
+# Validate and sanitize the procedure parameter
+allowed_procedures = ["web.get_customer", "web.put_customer", ...]
+if procedure not in allowed_procedures:
+    raise ValueError("Invalid procedure")
+
+# Use parameterized queries
+cursor.execute(f"EXEC {procedure} ?", (json.dumps(payload),))
+```
+
+## 2. Command Injection Vulnerabilities
+
+There are no obvious command injection vulnerabilities in the provided code. However, the `os.environ` variables are used to construct database connections and Azure Monitor settings. Ensure that these environment variables are properly validated and sanitized.
+
+## 3. Path Traversal Issues
+
+There are no obvious path traversal issues in the provided code. However, the `customer_id` parameter is used in the URL path. Ensure that it is properly validated and sanitized to prevent any potential issues.
+
+## 4. Authentication and Authorization Flaws
+
+The provided code does not seem to implement any authentication or authorization mechanisms. This makes it vulnerable to unauthorized access.
+
+**Fix:** 
+Implement authentication and authorization mechanisms, such as OAuth, JWT, or role-based access control, to ensure that only authorized users can access and modify resources.
+
+## 5. Improper Error Handling and Information Leakage
+
+The `executeQueryJSON` method catches `pyodbc.OperationalError` exceptions but logs only the error message. This may leak sensitive information.
+
+**Fix:** 
+Log only generic error messages and avoid leaking sensitive information.
+
+```python
+except pyodbc.OperationalError as e:
+    app.logger.error("Database operation failed")
+    # Remove sensitive information from logs
+```
+
+## 6. Hardcoded Secrets
+
+The code uses environment variables to store sensitive information, such as database connections and Azure Monitor settings. However, it is essential to ensure that these environment variables are properly secured and not hardcoded in the code.
+
+**Fix:** 
+Use a secrets management system, such as Hashicorp's Vault or AWS Secrets Manager, to securely store and manage sensitive information.
+
+## 7. Insecure Use of Cryptographic Functions
+
+The provided code does not seem to use any cryptographic functions. However, if cryptographic functions are used elsewhere in the codebase, ensure that they are properly implemented and follow best practices.
+
+## Additional Recommendations
+
+* Use a Web Application Firewall (WAF) to detect and prevent common web attacks.
+* Implement rate limiting and IP blocking to prevent brute-force attacks.
+* Use a secure protocol for database connections, such as TLS.
+* Regularly update dependencies and libraries to ensure you have the latest security patches.
+
+# Updated Code
+
+Here's an updated version of the `executeQueryJSON` method that addresses some of the security concerns:
+
+```python
+@retry(stop=stop_after_attempt(3), wait=wait_fixed(10), retry=retry_if_exception_type(pyodbc.OperationalError), after=after_log(app.logger, logging.DEBUG))
+def executeQueryJSON(self, procedure, payload=None):
+    result = {}  
+    try:
+        conn = self.__getConnection()
+
+        cursor = conn.cursor()
+        
+        # Validate and sanitize the procedure parameter
+        allowed_procedures = ["web.get_customer", "web.put_customer", ...]
+        if procedure not in allowed_procedures:
+            raise ValueError("Invalid procedure")
+
+        if payload:
+            # Use parameterized queries
+            cursor.execute(f"EXEC {procedure} ?", (json.dumps(payload),))
+        else:
+            cursor.execute(f"EXEC {procedure}")
+
+        result = cursor.fetchone()
+
+        if result:
+            result = json.loads(result[0])                           
+        else:
+            result = {}
+
+        cursor.commit()    
+    except pyodbc.OperationalError as e:
+        app.logger.error("Database operation failed")
+        # Remove sensitive information from logs
+        if e.args[0] == "08S01":
+            # If there is a "Communication Link Failure" error, 
+            # then connection must be removed
+            # as it will be in an invalid state
+            self.__removeConnection() 
+            raise                        
+    finally:
+        cursor.close()
+                         
+    return result
+```
+
+Note that this is not an exhaustive list of security vulnerabilities, and additional issues may exist in the codebase. It is essential to perform regular security audits and penetration testing to ensure the security of your application.
+
+--------------------------------------------------
+PERFORMANCE ANALYSIS:
+--------------------------------------------------
+
+# Step-by-step analysis of the problem:
+
+### 1. Inefficient algorithms or data structures
+
+*   **PyODBC Connection Management:** The current implementation creates a new PyODBC connection for every query execution. Although a singleton pattern is used to avoid global objects, the connection is still re-created when it becomes `None`. This can be optimized by reusing the existing connection.
+*   **Database Queries:** The code executes database queries for every API call. If these queries are complex or involve multiple joins, it might be more efficient to batch queries or use caching.
+
+### 2. Repeated computations that could be cached
+
+*   **Database Query Results:** The code does not implement caching for database query results. If the same queries are executed multiple times with the same parameters, caching the results can improve performance.
+
+### 3. Unnecessary resource usage
+
+*   **Connection Management:** The `__removeConnection` method is used to set the connection to `None` when an operational error occurs. However, this method does not actually close the connection, which can lead to resource leaks. The connection should be properly closed.
+
+### 4. Database query inefficiencies
+
+*   **SQL Injection:** Although parameterized queries are used, the procedure name is constructed dynamically using string formatting. This can make the code vulnerable to SQL injection attacks. Consider using a whitelist of allowed procedure names.
+*   **Error Handling:** The code catches specific operational errors but does not handle other potential database errors. Consider implementing more comprehensive error handling.
+
+### 5. Memory leaks or excessive memory usage
+
+*   **Connection Management:** The PyODBC connection is not properly closed when an exception occurs. This can lead to memory leaks. Consider using a `try-finally` block or a context manager to ensure the connection is closed.
+
+### 6. Threading or concurrency issues
+
+*   **Connection Management:** The `ConnectionManager` class uses a singleton pattern with a lock to ensure thread safety. However, the `executeQueryJSON` method is not thread-safe because it uses a shared connection object. Consider using a thread-safe connection pool or a context manager to manage connections.
+
+# Fixed solution:
+
+```python
+import sys
+import os
+import json
+import pyodbc
+import socket
+from flask import Flask
+from flask_restful import reqparse, abort, Api, Resource
+from threading import Lock
+from tenacity import *
+from opencensus.ext.azure.trace_exporter import AzureExporter
+from opencensus.ext.flask.flask_middleware import FlaskMiddleware
+from opencensus.trace.samplers import ProbabilitySampler
+import logging
+from contextlib import contextmanager
+
+# Initialize Flask
+app = Flask(__name__)
+
+# Setup Azure Monitor
+if 'APPINSIGHTS_KEY' in os.environ:
+    middleware = FlaskMiddleware(
+        app,
+        exporter=AzureExporter(connection_string="InstrumentationKey={0}".format(os.environ['APPINSIGHTS_KEY'])),
+        sampler=ProbabilitySampler(rate=1.0),
+    )
+
+# Setup Flask Restful framework
+api = Api(app)
+parser = reqparse.RequestParser()
+parser.add_argument('customer')
+
+# Implement singleton to avoid global objects
+class ConnectionManager(object):
+    __instance = None
+    __lock = Lock()
+
+    def __new__(cls):
+        if ConnectionManager.__instance is None:
+            ConnectionManager.__instance = object.__new__(cls)
+        return ConnectionManager.__instance
+
+    @contextmanager
+    def get_connection(self):
+        connection = None
+        try:
+            connection = pyodbc.connect(os.environ['SQLAZURECONNSTR_WWIF'] + self.get_application_name())
+            yield connection
+        except pyodbc.OperationalError as e:
+            app.logger.error(f"{e.args[1]}")
+            if e.args[0] == "08S01":
+                # If there is a "Communication Link Failure" error,
+                # then connection must be removed
+                # as it will be in an invalid state
+                raise
+        finally:
+            if connection:
+                connection.close()
+
+    def get_application_name(self):
+        return ";APP={0}".format(socket.gethostname())
+
+    @retry(stop=stop_after_attempt(3), wait=wait_fixed(10), retry=retry_if_exception_type(pyodbc.OperationalError), after=after_log(app.logger, logging.DEBUG))
+    def executeQueryJSON(self, procedure, payload=None):
+        result = {}
+        allowed_procedures = ["web.get_customer", "web.put_customer", "web.patch_customer", "web.delete_customer", "web.get_customers"]
+
+        if procedure not in allowed_procedures:
+            raise ValueError("Invalid procedure name")
+
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                if payload:
+                    cursor.execute(f"EXEC {procedure} ?", json.dumps(payload))
+                else:
+                    cursor.execute(f"EXEC {procedure}")
+                result = cursor.fetchone()
+
+                if result:
+                    result = json.loads(result[0])
+                else:
+                    result = {}
+
+                conn.commit()
+        except Exception as e:
+            app.logger.error(f"An error occurred: {e}")
+            raise
+
+        return result
+
+class Queryable(Resource):
+    def executeQueryJson(self, verb, payload=None):
+        result = {}
+        entity = type(self).__name__.lower()
+        procedure = f"web.{verb}_{entity}"
+        result = ConnectionManager().executeQueryJSON(procedure, payload)
+        return result
+
+# Customer Class
+class Customer(Queryable):
+    def get(self, customer_id):
+        customer = {}
+        customer["CustomerID"] = customer_id
+        result = self.executeQueryJson("get", customer)
+        return result, 200
+
+    def put(self):
+        args = parser.parse_args()
+        customer = json.loads(args['customer'])
+        result = self.executeQueryJson("put", customer)
+        return result, 201
+
+    def patch(self, customer_id):
+        args = parser.parse_args()
+        customer = json.loads(args['customer'])
+        customer["CustomerID"] = customer_id
+        result = self.executeQueryJson("patch", customer)
+        return result, 202
+
+    def delete(self, customer_id):
+        customer = {}
+        customer["CustomerID"] = customer_id
+        result = self.executeQueryJson("delete", customer)
+        return result, 202
+
+# Customers Class
+class Customers(Queryable):
+    def get(self):
+        result = self.executeQueryJson("get")
+        return result, 200
+
+# Create API routes
+api.add_resource(Customer, '/customer', '/customer/<customer_id>')
+api.add_resource(Customers, '/customers')
+
+```
+
+# Explanation of changes:
+
+*   **Improved Connection Management:** The `ConnectionManager` class now uses a context manager to ensure the connection is properly closed after use.
+*   **SQL Injection Protection:** The code now checks if the procedure name is in a whitelist before executing the query.
+*   **Error Handling:** The code now catches and logs all exceptions, not just operational errors.
+*   **Thread Safety:** The `executeQueryJSON` method is now thread-safe because it uses a context manager to manage the connection.
+
+# Tests and example uses:
+
+You can test the API using tools like Postman or curl. For example:
+
+```bash
+curl -X GET http://localhost:5000/customer/1
+curl -X POST -H "Content-Type: application/json" -d '{"customer": {"name": "John Doe"}}' http://localhost:5000/customer
+```
+
+Make sure to replace the `SQLAZURECONNSTR_WWIF` environment variable with your actual database connection string.
+
+**Performance Testing:**
+
+You can use tools like Apache JMeter or locust to test the performance of your API under load.
+
+```python
+import locust
+
+class UserBehavior(locust.TaskSet):
+    def on_start(self):
+        pass
+
+    def on_stop(self):
+        pass
+
+    @locust.task
+    def get_customer(self):
+        self.client.get("/customer/1")
+
+    @locust.task
+    def post_customer(self):
+        self.client.post("/customer", json={"name": "John Doe"})
+
+class WebsiteUser(locust.HttpLocust):
+    task_set = UserBehavior
+    min_wait = 5000
+    max_wait = 9000
+```
+
+Run the locust script and simulate a large number of users to test the performance of your API.
+
+**Monitoring:**
+
+You can use tools like Azure Monitor or Prometheus to monitor the performance of your API.
+
+```python
+import prometheus_client
+
+def main():
+    prometheus_client.start_http_server(8000)
+    # Your API code here
+
+if __name__ == "__main__":
+    main()
+```
+
+Access the Prometheus metrics at `http://localhost:8000`.
+
+================================================================================
+FILE: /Users/admin/Desktop/hackathon-project/data/azure-sql-db-python-rest-api/sql/WideWorldImportersUpdates.sql
+================================================================================
+
+
+--------------------------------------------------
+SECURITY ANALYSIS:
+--------------------------------------------------
+
+**SQL Security Analysis Report**
+
+### 1. SQL Injection Vulnerabilities
+
+*   **Vulnerability:** The stored procedures `web.get_customer`, `web.delete_customer`, `web.patch_customer`, and `web.put_customer` are vulnerable to SQL injection attacks because they use user-input data (`@Json`) directly in dynamic SQL operations without proper sanitization or parameterization.
+*   **Fix:** Instead of using `JSON_VALUE` to extract values from the `@Json` parameter, consider using a strongly-typed approach with a user-defined table type or a JSON schema validation to ensure the input data conforms to the expected structure. For example, you can create a user-defined table type for the JSON data and use it as a parameter in your stored procedures.
+
+```sql
+CREATE TYPE CustomerJsonType AS TABLE (
+    CustomerID INT,
+    CustomerName NVARCHAR(100),
+    PhoneNumber NVARCHAR(20),
+    FaxNumber NVARCHAR(20),
+    WebsiteURL NVARCHAR(256),
+    DeliveryAddressLine1 NVARCHAR(60),
+    DeliveryAddressLine2 NVARCHAR(60),
+    DeliveryPostalCode NVARCHAR(10)
+);
+
+CREATE OR ALTER PROCEDURE web.get_customer
+    @Json CustomerJsonType READONLY
+AS
+SET NOCOUNT ON;
+DECLARE @CustomerId INT = (SELECT CustomerID FROM @Json);
+-- ...
+```
+
+### 2. Privilege Escalation Risks
+
+*   **Vulnerability:** The `PythonWebApp` user is granted `EXECUTE` permission on the `web` schema, which may not be necessary for all stored procedures. This could lead to privilege escalation if an attacker gains access to the `PythonWebApp` account.
+*   **Fix:** Review the permissions required by each stored procedure and grant only the necessary permissions to the `PythonWebApp` user. Consider using a least privilege approach to minimize the attack surface.
+
+```sql
+GRANT EXECUTE ON PROCEDURE::web.get_customer TO [PythonWebApp];
+GRANT EXECUTE ON PROCEDURE::web.delete_customer TO [PythonWebApp];
+-- ...
+```
+
+### 3. Insecure Data Access Patterns
+
+*   **Vulnerability:** The stored procedure `web.get_customers` returns all customers, which may contain sensitive information. This could lead to data exposure if the procedure is accessed by unauthorized users.
+*   **Fix:** Implement proper access controls and consider adding filtering or pagination to limit the data returned by the procedure.
+
+```sql
+CREATE OR ALTER PROCEDURE web.get_customers
+    @Filter NVARCHAR(100) = NULL
+AS
+SET NOCOUNT ON;
+SELECT CAST((
+    SELECT 
+        [CustomerID], 
+        [CustomerName]
+    FROM 
+        [Sales].[Customers] 
+    WHERE 
+        (@Filter IS NULL OR [CustomerName] LIKE '%' + @Filter + '%')
+    FOR JSON PATH) AS NVARCHAR(MAX)) AS JsonResult;
+```
+
+### 4. Improper Access Controls
+
+*   **Vulnerability:** The stored procedures `web.delete_customer` and `web.patch_customer` do not check if the user has permission to perform these actions on the specified customer.
+*   **Fix:** Implement proper access controls, such as checking the user's role or permissions, before allowing modifications to customer data.
+
+```sql
+CREATE OR ALTER PROCEDURE web.delete_customer
+    @Json CustomerJsonType READONLY
+AS
+SET NOCOUNT ON;
+DECLARE @CustomerId INT = (SELECT CustomerID FROM @Json);
+IF NOT EXISTS (SELECT 1 FROM [Sales].[Customers] WHERE CustomerID = @CustomerId AND [CreatedBy] = SUSER_NAME())
+    RAISERROR ('Unauthorized access', 16, 1);
+DELETE FROM [Sales].[Customers] WHERE CustomerID = @CustomerId;
+```
+
+### 5. Data Exposure Risks
+
+*   **Vulnerability:** The stored procedure `web.get_customer` returns sensitive customer information, such as phone numbers and fax numbers, without any access controls.
+*   **Fix:** Implement proper access controls and consider encrypting sensitive data at rest and in transit.
+
+```sql
+CREATE OR ALTER PROCEDURE web.get_customer
+    @Json CustomerJsonType READONLY
+AS
+SET NOCOUNT ON;
+DECLARE @CustomerId INT = (SELECT CustomerID FROM @Json);
+IF NOT EXISTS (SELECT 1 FROM [Sales].[Customers] WHERE CustomerID = @CustomerId AND [CreatedBy] = SUSER_NAME())
+    RAISERROR ('Unauthorized access', 16, 1);
+SELECT 
+    [CustomerID], 
+    [CustomerName]
+FROM 
+    [Sales].[Customers] 
+WHERE 
+    [CustomerID] = @CustomerId
+FOR JSON PATH;
+```
+
+### 6. Unsafe Dynamic SQL
+
+*   **Vulnerability:** The stored procedure `web.put_customer` uses dynamic SQL to construct the `INSERT` statement, which may be vulnerable to SQL injection attacks.
+*   **Fix:** Avoid using dynamic SQL whenever possible. Instead, use parameterized queries or stored procedures with strongly-typed parameters.
+
+```sql
+CREATE OR ALTER PROCEDURE web.put_customer
+    @Json CustomerJsonType READONLY
+AS
+SET NOCOUNT ON;
+DECLARE @CustomerId INT = NEXT VALUE FOR Sequences.CustomerID;
+INSERT INTO [Sales].[Customers] 
+(
+    CustomerID, 
+    CustomerName, 
+    -- ...
+)
+SELECT
+    @CustomerId, 
+    CustomerName, 
+    -- ...
+FROM
+    @Json;
+```
+
+### 7. Improper Error Handling
+
+*   **Vulnerability:** The stored procedures do not handle errors properly, which may lead to information disclosure or unexpected behavior.
+*   **Fix:** Implement proper error handling using TRY-CATCH blocks and log errors securely.
+
+```sql
+CREATE OR ALTER PROCEDURE web.get_customer
+    @Json CustomerJsonType READONLY
+AS
+SET NOCOUNT ON;
+BEGIN TRY
+    DECLARE @CustomerId INT = (SELECT CustomerID FROM @Json);
+    -- ...
+END TRY
+BEGIN CATCH
+    DECLARE @ErrorMessage NVARCHAR(4000);
+    SET @ErrorMessage = ERROR_MESSAGE();
+    RAISERROR (@ErrorMessage, 16, 1);
+END CATCH;
+```
+
+--------------------------------------------------
+PERFORMANCE ANALYSIS:
+--------------------------------------------------
+
+# Performance Analysis of the Provided SQL Code
+
+The given SQL code appears to be part of a database schema and stored procedures for managing customers. The analysis focuses on potential performance issues.
+
+## 1. Inefficient Queries (Lack of Proper Indexing Hints)
+
+- **Issue**: The queries in the stored procedures do not explicitly specify indexes, which can lead to the database engine choosing less efficient execution plans.
+- **Optimization**: Consider adding covering indexes on columns used in `WHERE`, `JOIN`, and `SELECT` clauses.
+
+## 2. Suboptimal Join Techniques
+
+- **Issue**: In the `web.patch_customer` procedure, an inner join is used to update the `Customers` table. This approach can be resource-intensive, especially for large tables.
+- **Optimization**: Consider using a single update statement with a subquery or a Common Table Expression (CTE) that directly references the JSON data.
+
+## 3. Expensive Operations (Full Table Scans, Cartesian Products)
+
+- **Issue**: 
+  - The `web.get_customers` procedure performs a full table scan on the `Customers` table.
+  - The `web.get_customer`, `web.delete_customer`, and `web.patch_customer` procedures also perform operations that could potentially lead to full table scans if the `CustomerID` column is not properly indexed.
+- **Optimization**:
+  - Create a non-clustered index on the `CustomerID` column in the `Customers` table to support efficient lookups.
+  - For `web.get_customers`, consider adding a filter or pagination if the table is very large.
+
+## 4. Missing Indexes or Constraints
+
+- **Issue**: There are no explicit indexes or constraints mentioned for the `CustomerID` column in the `Customers` table, which is frequently used in `WHERE` and `JOIN` clauses.
+- **Optimization**:
+  - Create a primary key or unique constraint on the `CustomerID` column if it doesn't already exist.
+  - Consider adding non-clustered indexes on columns used in `WHERE`, `JOIN`, and `ORDER BY` clauses.
+
+## 5. Improper Use of Temporary Tables or Views
+
+- **Issue**: The use of CTEs (`[source]`) seems appropriate but could be optimized further.
+- **Optimization**: Ensure that the CTEs are properly optimized and consider materializing them if they are complex and reused.
+
+## 6. Redundant Operations
+
+- **Issue**: In `web.patch_customer` and `web.put_customer`, after updating or inserting a customer, the code calls `web.get_customer` to retrieve the updated or inserted customer. This can be redundant if the client can handle the result directly from the update or insert operation.
+- **Optimization**: Consider returning the result directly from the stored procedure without calling `web.get_customer`.
+
+## 7. Potential Execution Bottlenecks
+
+- **Issue**: 
+  - The `web.put_customer` procedure inserts a new customer with a large number of default or hardcoded values. This could potentially lead to bottlenecks if the table has triggers or if the defaults are computed values.
+- **Optimization**:
+  - Review the necessity of hardcoded values and consider making them configurable.
+  - Ensure that any triggers on the `Customers` table are optimized.
+
+## Recommendations
+
+### Indexing
+
+```sql
+CREATE NONCLUSTERED INDEX IX_Customers_CustomerID ON [Sales].[Customers] (CustomerID);
+```
+
+### Optimizing `web.patch_customer`
+
+Instead of joining, directly use the CTE or subquery for update:
+
+```sql
+CREATE OR ALTER PROCEDURE web.patch_customer
+@Json NVARCHAR(MAX)
+AS
+SET NOCOUNT ON;
+DECLARE @CustomerId INT = JSON_VALUE(@Json, '$.CustomerID');
+WITH [source] AS 
+(
+    SELECT * FROM OPENJSON(@Json) WITH (
+        [CustomerName] NVARCHAR(100), 
+        [PhoneNumber] NVARCHAR(20), 
+        [FaxNumber] NVARCHAR(20), 
+        [WebsiteURL] NVARCHAR(256),
+        [DeliveryAddressLine1] NVARCHAR(60) '$.Delivery.AddressLine1',
+        [DeliveryAddressLine2] NVARCHAR(60) '$.Delivery.AddressLine2',
+        [DeliveryPostalCode] NVARCHAR(10) '$.Delivery.PostalCode'    
+    )
+)
+UPDATE c
+SET 
+    c.[CustomerName] = COALESCE(s.[CustomerName], c.[CustomerName]),
+    c.[PhoneNumber] = COALESCE(s.[PhoneNumber], c.[PhoneNumber]),
+    c.[FaxNumber] = COALESCE(s.[FaxNumber], c.[FaxNumber]),
+    c.[WebsiteURL] = COALESCE(s.[WebsiteURL], c.[WebsiteURL]),
+    c.[DeliveryAddressLine1] = COALESCE(s.[DeliveryAddressLine1], c.[DeliveryAddressLine1]),
+    c.[DeliveryAddressLine2] = COALESCE(s.[DeliveryAddressLine2], c.[DeliveryAddressLine2]),
+    c.[DeliveryPostalCode] = COALESCE(s.[DeliveryPostalCode], c.[DeliveryPostalCode])
+FROM 
+    [Sales].[Customers] c
+    CROSS APPLY (SELECT * FROM [source]) s
+WHERE 
+    c.CustomerID = @CustomerId;
+```
+
+### Optimizing `web.put_customer`
+
+Consider returning the inserted row directly:
+
+```sql
+CREATE OR ALTER PROCEDURE web.put_customer
+@Json NVARCHAR(MAX)
+AS
+SET NOCOUNT ON;
+DECLARE @CustomerId INT = NEXT VALUE FOR Sequences.CustomerID;
+WITH [source] AS 
+(
+    SELECT * FROM OPENJSON(@Json) WITH (        
+        [CustomerName] NVARCHAR(100), 
+        [PhoneNumber] NVARCHAR(20), 
+        [FaxNumber] NVARCHAR(20), 
+        [WebsiteURL] NVARCHAR(256),
+        [DeliveryAddressLine1] NVARCHAR(60) '$.Delivery.AddressLine1',
+        [DeliveryAddressLine2] NVARCHAR(60) '$.Delivery.AddressLine2',
+        [DeliveryPostalCode] NVARCHAR(10) '$.Delivery.PostalCode'    
+    )
+)
+INSERT INTO [Sales].[Customers] 
+(
+    CustomerID, 
+    CustomerName,     
+    BillToCustomerID, 
+    CustomerCategoryID,    
+    PrimaryContactPersonID,
+    DeliveryMethodID,
+    DeliveryCityID,
+    PostalCityID,
+    AccountOpenedDate,
+    StandardDiscountPercentage,
+    IsStatementSent,
+    IsOnCreditHold,
+    PaymentDays,
+    PhoneNumber, 
+    FaxNumber, 
+    WebsiteURL, 
+    DeliveryAddressLine1, 
+    DeliveryAddressLine2, 
+    DeliveryPostalCode,
+    PostalAddressLine1, 
+    PostalAddressLine2, 
+    PostalPostalCode,
+    LastEditedBy
+)
+OUTPUT 
+    inserted.CustomerID, 
+    inserted.CustomerName, 
+    inserted.PhoneNumber, 
+    inserted.FaxNumber, 
+    inserted.WebsiteURL,
+    inserted.DeliveryAddressLine1 AS 'Delivery.AddressLine1',
+    inserted.DeliveryAddressLine2 AS 'Delivery.AddressLine2',
+    inserted.DeliveryPostalCode AS 'Delivery.PostalCode'
+    FOR JSON PATH
+SELECT
+    @CustomerId, 
+    CustomerName, 
+    @CustomerId, 
+    5, -- Computer Shop
+    1, -- No contact person
+    1, -- Post Delivery 
+    28561, -- Redmond
+    28561, -- Redmond
+    SYSUTCDATETIME(),
+    0.00,
+    0,
+    0,
+    30,
+    PhoneNumber, 
+    FaxNumber, 
+    WebsiteURL, 
+    DeliveryAddressLine1, 
+    DeliveryAddressLine2, 
+    DeliveryPostalCode,
+    DeliveryAddressLine1, 
+    DeliveryAddressLine2, 
+    DeliveryPostalCode,
+    1 
+FROM
+    [source]
+;
+```
+
+### Optimizing `web.get_customers`
+
+Consider adding pagination or filtering:
+
+```sql
+CREATE OR ALTER PROCEDURE web.get_customers
+    @Offset INT = 0,
+    @Rows INT = 100
+AS
+SET NOCOUNT ON;
+SELECT CAST((
+    SELECT 
+        [CustomerID], 
+        [CustomerName]
+    FROM 
+        [Sales].[Customers] 
+    ORDER BY 
+        CustomerID
+    OFFSET @Offset ROWS
+    FETCH NEXT @Rows ROWS ONLY
+    FOR JSON PATH) AS NVARCHAR(MAX)) AS JsonResult
+GO
+```
+
+By addressing these potential issues, the performance of the SQL code can be significantly improved, especially for large datasets. Always test and analyze the execution plans to ensure that the optimizations are effective.

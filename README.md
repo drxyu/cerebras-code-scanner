@@ -204,6 +204,28 @@ Results can be displayed in the terminal and/or saved to a Markdown file.
 - cerebras-cloud-sdk
 - pyyaml
 
+## TEST CASES: 
+1. Self.
+
+Feedback: 
+  docs/self_scan_improvement_1.txt	
+  docs/self_scan_result_1.txt
+  docs/self_scan_improvement_2.txt	
+  docs/self_scan_result_2.txt
+
+2. Azure sql api.
+https://github.com/Azure-Samples/azure-sql-db-python-rest-api
+
+Feedback:
+  docs/azure-sql-db-python-rest-api.txt
+
+3. Bookclub webapp.
+https://github.com/ms4985/BookClubWebApp.git
+
+Feedback:
+  docs/BookClubWebApp.txt
+
+
 ## License
 
 MIT
