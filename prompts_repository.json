@@ -1,0 +1,268 @@
+{
+  "metadata": {
+    "version": "1.0.0",
+    "description": "Expandable prompt repository for Cerebras Code Scanner",
+    "last_updated": "2025-04-12"
+  },
+  "categories": {
+    "python": {
+      "security": [
+        {
+          "id": "sql-injection",
+          "name": "SQL Injection",
+          "prompt_template": "Analyze the following Python code for any SQL injection vulnerabilities. Identify any places where untrusted input is used to construct SQL queries, explain the risk, and suggest safer alternatives (such as parameterized queries).",
+          "output_format": "markdown",
+          "example_fix": "Instead of: cursor.execute(f\"SELECT * FROM users WHERE id = {user_id}\")\nUse: cursor.execute(\"SELECT * FROM users WHERE id = %s\", (user_id,))"
+        },
+        {
+          "id": "command-injection",
+          "name": "OS Command Injection",
+          "prompt_template": "Analyze the following Python code for OS command injection vulnerabilities. Check if any external system commands are executed using user-supplied input (e.g., via os.system or subprocess). If found, explain the vulnerability and recommend how to sanitize inputs or use safer APIs.",
+          "output_format": "markdown",
+          "example_fix": "Instead of: os.system(f\"ping {user_input}\")\nUse: subprocess.run([\"ping\", user_input], shell=False)"
+        },
+        {
+          "id": "unsafe-deserialization",
+          "name": "Unsafe Deserialization",
+          "prompt_template": "Examine the following Python code for unsafe deserialization or unsafe object loading issues (e.g., using pickle or yaml.load on untrusted data). If any are present, describe the security risk and suggest safer handling (such as using safe loaders or avoiding unsafe formats).",
+          "output_format": "markdown",
+          "example_fix": "Instead of: data = pickle.loads(user_data)\nUse: data = json.loads(user_data) # Or verify source is trusted"
+        },
+        {
+          "id": "plaintext-credentials",
+          "name": "Plaintext Credentials",
+          "prompt_template": "Analyze the following Python code for any hardcoded secrets or plaintext credentials (such as passwords, API keys, or tokens embedded in the code). If any are found, explain why storing credentials in code is insecure and recommend more secure alternatives (like environment variables or secure vaults).",
+          "output_format": "markdown",
+          "example_fix": "Instead of: API_KEY = \"sk_live_abcdef123456\"\nUse: API_KEY = os.environ.get(\"API_KEY\")"
+        },
+        {
+          "id": "eval-exec",
+          "name": "Use of eval/exec",
+          "prompt_template": "Review the code for any use of eval(), exec(), or similar functions that execute dynamically constructed code. Identify any such usage, explain why it may be unsafe (especially with untrusted input), and suggest safer alternatives.",
+          "output_format": "markdown",
+          "example_fix": "Instead of: eval(user_input)\nUse: A safer approach with explicit parsing or validation"
+        },
+        {
+          "id": "path-traversal",
+          "name": "Path Traversal",
+          "prompt_template": "Examine the following Python code for file path traversal vulnerabilities. Identify any file or directory operations (like open, os.rename, etc.) that use user-provided paths without validation. If found, explain how an attacker could exploit it (e.g., via '../' in the path) and suggest input validation or other mitigations.",
+          "output_format": "markdown",
+          "example_fix": "Instead of: open(user_path)\nUse: from pathlib import Path\npath = Path(user_path)\nif path.resolve().is_relative_to(safe_dir):\n    open(path)"
+        },
+        {
+          "id": "weak-cryptography",
+          "name": "Weak Cryptography",
+          "prompt_template": "Analyze the Python code for usage of weak cryptographic practices. Look for any use of outdated or insecure algorithms (like MD5, SHA1, or weak RSA/DES) or short encryption keys. If found, explain why it's considered weak and recommend stronger alternatives or algorithms.",
+          "output_format": "markdown",
+          "example_fix": "Instead of: hashlib.md5(password).hexdigest()\nUse: import bcrypt; bcrypt.hashpw(password, bcrypt.gensalt())"
+        },
+        {
+          "id": "insecure-randomness",
+          "name": "Insecure Randomness",
+          "prompt_template": "Check the following Python code for insecure randomness usage. Identify any instances where the code uses non-cryptographic random number generators (e.g., random.random) for security-sensitive operations (like generating passwords, tokens, or keys). If found, explain the risk and suggest using cryptographically secure alternatives (like secrets or os.urandom).",
+          "output_format": "markdown",
+          "example_fix": "Instead of: import random; token = random.randbytes(16)\nUse: import secrets; token = secrets.token_bytes(16)"
+        },
+        {
+          "id": "missing-auth-checks",
+          "name": "Missing Authentication Checks",
+          "prompt_template": "Review the Python code for missing authentication or authorization checks. Look for API endpoints, functions, or routes that access sensitive data or operations without verifying the user's identity or permissions. Also check for improper session management or token validation.",
+          "output_format": "markdown",
+          "example_fix": "Instead of directly accessing data:\nAdd: if not user.is_authenticated or not user.has_permission('read_data'):\n    return unauthorized_response()"
+        },
+        {
+          "id": "insecure-ssl-tls",
+          "name": "Insecure SSL/TLS Configuration",
+          "prompt_template": "Check the Python code for insecure SSL/TLS configurations, such as disabling certificate validation (verify=False in requests), using outdated SSL/TLS versions, or improper certificate handling. Explain the risks and recommend proper secure connection practices.",
+          "output_format": "markdown",
+          "example_fix": "Instead of: requests.get(url, verify=False)\nUse: requests.get(url) # Always validate certificates"
+        }
+      ],
+      "performance": [
+        {
+          "id": "nested-loops",
+          "name": "Nested Loops",
+          "prompt_template": "Analyze the following Python code for performance issues, specifically looking at nested loops. Identify any deeply nested loops or loops that grow in complexity (O(n²) or worse) that might slow down execution for large inputs. If found, explain why it is inefficient and suggest any possible optimizations or refactoring.",
+          "output_format": "markdown",
+          "example_fix": "Instead of nested loops searching lists, use dictionaries for O(1) lookups"
+        },
+        {
+          "id": "redundant-computation",
+          "name": "Redundant Computation",
+          "prompt_template": "Review the Python code for redundant computations or calculations inside loops. Look for cases where the same value is computed multiple times (for example, calling a function or calculating a length on every iteration when it could be done once outside the loop). If found, explain why it hurts performance and how to refactor to avoid unnecessary repetition.",
+          "output_format": "markdown",
+          "example_fix": "Move calculations outside loops when their values don't change during iteration"
+        },
+        {
+          "id": "inefficient-data-structure",
+          "name": "Inefficient Data Structure",
+          "prompt_template": "Evaluate the following Python code for inefficient data structure usage. Identify cases where a different data structure would significantly improve performance (e.g., using a list where a set or dict would be faster for lookups, or using an inefficient algorithm due to the choice of structure). If found, explain the issue and recommend a better data structure or approach.",
+          "output_format": "markdown",
+          "example_fix": "Use sets for membership testing instead of lists when order doesn't matter"
+        },
+        {
+          "id": "inefficient-io-in-loop",
+          "name": "Inefficient I/O in Loop",
+          "prompt_template": "Check the Python code for inefficient I/O operations inside loops. Identify any instances where file or database operations (or other I/O) are performed inside a loop in a way that could be batched or optimized. If found, explain the performance impact and suggest how to reduce I/O frequency or latency.",
+          "output_format": "markdown",
+          "example_fix": "Batch database operations instead of making separate calls for each item"
+        },
+        {
+          "id": "inefficient-string-building",
+          "name": "Inefficient String Building",
+          "prompt_template": "Analyze the Python code for inefficient string handling patterns. In particular, check for building strings using concatenation in a loop or other suboptimal methods. If such patterns are present, explain why they are inefficient in Python and suggest more efficient techniques (e.g., using join() or using io.StringIO).",
+          "output_format": "markdown",
+          "example_fix": "Instead of: s = ''; for item in items: s += str(item)\nUse: s = ''.join(str(item) for item in items)"
+        },
+        {
+          "id": "lack-of-vectorization",
+          "name": "Lack of Vectorization",
+          "prompt_template": "Inspect the Python code for opportunities to use more vectorized operations or built-in functions for better performance. Identify any places where heavy computations are done in pure Python loops that could be replaced by optimized library calls (e.g., using sum() instead of a manual loop, or using numpy/pandas operations for large datasets). If found, explain the performance issue and suggest the vectorized alternative.",
+          "output_format": "markdown",
+          "example_fix": "Use numpy.array operations instead of element-by-element manipulation in loops"
+        },
+        {
+          "id": "n-plus-1-queries",
+          "name": "N+1 Database Queries",
+          "prompt_template": "Analyze the following Python code for the \"N+1 queries\" performance anti-pattern. Check if there are database queries (or similar external calls) inside a loop, which can lead to many repetitive calls. If this pattern is found, explain why it is inefficient and suggest how to restructure the code to reduce the number of calls.",
+          "output_format": "markdown",
+          "example_fix": "Instead of querying in a loop, use a JOIN query or eager loading to fetch related data in a single operation"
+        },
+        {
+          "id": "connection-pooling",
+          "name": "Missing Connection Pooling",
+          "prompt_template": "Check if the Python code creates new database connections repeatedly instead of using connection pooling. This can be inefficient especially in web applications handling multiple requests. If found, explain the performance impact and suggest implementing connection pooling.",
+          "output_format": "markdown",
+          "example_fix": "Use SQLAlchemy engine with pool_size parameter or similar connection pooling mechanism"
+        }
+      ],
+      "maintainability": [
+        {
+          "id": "long-function",
+          "name": "Long Function",
+          "prompt_template": "Examine the structure of the following Python code for maintainability issues. Identify if any function is excessively long or doing too many things. If such a long function exists, explain why this is a maintenance problem (harder to read, test, or debug) and suggest how to refactor it into smaller, focused functions or modules.",
+          "output_format": "markdown",
+          "example_fix": "Break down functions longer than 50-100 lines into smaller, single-responsibility functions"
+        },
+        {
+          "id": "magic-values",
+          "name": "Magic Values",
+          "prompt_template": "Analyze the Python code for usage of \"magic values\" or hard-coded constants scattered through the code. Identify any numeric or string literals that are used in multiple places or without explanation. Explain why using magic values can be problematic and recommend defining them as named constants or configuration values for clarity.",
+          "output_format": "markdown",
+          "example_fix": "Replace literal values with named constants or configuration parameters"
+        },
+        {
+          "id": "inconsistent-naming",
+          "name": "Inconsistent Naming",
+          "prompt_template": "Check the following Python code for inconsistent naming conventions or unclear naming. Look for variables, functions, or classes with names that do not follow a consistent style (e.g., mixing camelCase and snake_case) or names that are not descriptive. If found, explain why consistent and descriptive naming is important and suggest clearer names or a standard style.",
+          "output_format": "markdown",
+          "example_fix": "Standardize on snake_case for variables and functions, PascalCase for classes"
+        },
+        {
+          "id": "duplicate-code",
+          "name": "Duplicate Code",
+          "prompt_template": "Review the Python code for duplicated code blocks or functionality. Identify if the same or very similar code appears in multiple places. If yes, explain why this is an anti-pattern (harder to maintain and prone to bugs) and suggest how to refactor by extracting common code into functions or classes to adhere to DRY (Don't Repeat Yourself) principles.",
+          "output_format": "markdown",
+          "example_fix": "Extract repeated code into a shared function or class method"
+        },
+        {
+          "id": "error-handling",
+          "name": "Poor Error Handling",
+          "prompt_template": "Examine the Python code for error handling issues, including overly broad exception catches (e.g., bare except: or except Exception:), swallowed exceptions without proper logging, or missing error handling in critical areas. Explain why proper error handling is crucial and suggest improvements.",
+          "output_format": "markdown",
+          "example_fix": "Instead of: try: ... except Exception: pass\nUse: try: ... except SpecificException as e: logger.error(f\"Error: {e}\")"
+        }
+      ]
+    },
+    "sql": {
+      "security": [
+        {
+          "id": "dynamic-sql-injection",
+          "name": "Dynamic SQL Injection",
+          "prompt_template": "Analyze the following SQL code (such as a stored procedure or script) for SQL injection vulnerabilities. Check if it constructs dynamic SQL queries by concatenating user input. If so, explain the injection risk and recommend parameterization or safe execution techniques.",
+          "output_format": "markdown",
+          "example_fix": "Use parameterized queries or prepared statements instead of string concatenation"
+        },
+        {
+          "id": "excessive-privileges",
+          "name": "Excessive Privileges",
+          "prompt_template": "Review the SQL code for privilege escalation risks or excessive privilege usage. Check if the code uses GRANT statements with too broad permissions, executes as higher privileged users when not needed, or creates users/roles with unnecessary permissions.",
+          "output_format": "markdown",
+          "example_fix": "Follow least privilege principle: grant only required permissions for each operation"
+        },
+        {
+          "id": "unsafe-stored-procedures",
+          "name": "Unsafe Stored Procedures",
+          "prompt_template": "Examine the SQL code for stored procedures that might contain security vulnerabilities like SQL injection through dynamic SQL execution, improper input validation, or insecure error handling that could leak sensitive information.",
+          "output_format": "markdown",
+          "example_fix": "Use sp_executesql with parameters instead of EXEC() with string concatenation"
+        }
+      ],
+      "performance": [
+        {
+          "id": "select-star",
+          "name": "SELECT * Usage",
+          "prompt_template": "Analyze the SQL query for use of SELECT *. If the query selects all columns using SELECT *, explain why this can be inefficient or problematic (for performance and maintainability) and suggest selecting only needed columns instead. Explain how this impacts index usage and I/O operations.",
+          "output_format": "markdown",
+          "example_fix": "Instead of: SELECT * FROM orders\nUse: SELECT order_id, customer_id, order_date FROM orders"
+        },
+        {
+          "id": "missing-index",
+          "name": "Missing Index",
+          "prompt_template": "Review the SQL query for potential missing indexes on columns used in JOIN or WHERE clauses. If the query is filtering or joining on a column that is likely not indexed (especially in a large table), identify it and explain how a missing index could impact performance. Recommend creating an index or optimizing the query to improve performance.",
+          "output_format": "markdown",
+          "example_fix": "Add: CREATE INDEX idx_customer_id ON orders(customer_id) for queries that frequently filter by customer_id"
+        },
+        {
+          "id": "missing-where-clause",
+          "name": "Missing WHERE Clause",
+          "prompt_template": "Examine the SQL query for proper filtering. If the query is retrieving data from a large table without a WHERE clause or filter (thus returning or scanning all rows), identify it. Explain why not having a filter can be a performance problem and suggest adding appropriate WHERE conditions to limit data processing when possible.",
+          "output_format": "markdown",
+          "example_fix": "Add appropriate WHERE conditions to limit the result set size"
+        },
+        {
+          "id": "suboptimal-join-order",
+          "name": "Suboptimal Join Order",
+          "prompt_template": "Analyze the SQL query for join performance. Consider if the join order or strategy might be suboptimal (for example, joining large tables before filtering or joining in a way that creates a large intermediate result). If any such pattern is present, explain the potential performance issue and suggest a better approach (like filtering earlier or reordering joins if possible).",
+          "output_format": "markdown",
+          "example_fix": "Filter tables before joining them to reduce the size of the join operation"
+        },
+        {
+          "id": "non-sargable-condition",
+          "name": "Non-SARGable Condition",
+          "prompt_template": "Review the SQL query for non-SARGable conditions (search arguments that prevent index use). Identify if any WHERE clause applies functions to columns (or uses leading wildcards in LIKE) that would prevent an index from being used. If found, explain why it hurts performance and suggest how to rewrite the condition to be index-friendly.",
+          "output_format": "markdown",
+          "example_fix": "Instead of: WHERE YEAR(date_column) = 2023\nUse: WHERE date_column >= '2023-01-01' AND date_column < '2024-01-01'"
+        },
+        {
+          "id": "missing-limit-clause",
+          "name": "Missing LIMIT Clause",
+          "prompt_template": "Check if the SQL query is selecting a potentially large result set without a LIMIT/OFFSET or equivalent constraint. If the query could return a huge number of rows and no limiting clause is present, note this. Explain the potential performance and memory impact of retrieving all rows and suggest implementing pagination or limits if appropriate for the use case.",
+          "output_format": "markdown",
+          "example_fix": "Add LIMIT/TOP clauses for queries that could return large result sets"
+        },
+        {
+          "id": "inefficient-batch-operations",
+          "name": "Inefficient Batch Operations",
+          "prompt_template": "Review the SQL code for large data modifications (INSERT, UPDATE, DELETE) that might benefit from batching. Check if operations are done one row at a time instead of in sets, or if large operations aren't broken into manageable chunks. Explain how improper batching can impact performance and suggest improvements.",
+          "output_format": "markdown",
+          "example_fix": "Use multi-row INSERT statements and batch large operations into smaller transactions"
+        },
+        {
+          "id": "suboptimal-transaction-usage",
+          "name": "Suboptimal Transaction Usage",
+          "prompt_template": "Analyze the SQL code for transaction usage patterns that might cause performance issues, such as long-running transactions, excessive commits, or improper isolation levels. Explain how these can impact concurrency and suggest better transaction management approaches.",
+          "output_format": "markdown",
+          "example_fix": "Keep transactions short and use appropriate isolation levels for the task"
+        }
+      ]
+    }
+  },
+  "prompt_generation": {
+    "scanner_template": {
+      "security": "You are an expert code security auditor specializing in identifying vulnerabilities in {language} code. Analyze the following {language} code carefully for security issues, focusing specifically on {subcategory}.\n\n{prompt_template}\n\nProvide a detailed analysis with specific line references. If you find issues, explain the vulnerability clearly, the potential impact, and recommend a concrete fix with sample code.\n\nIf no issues of this type are found, explicitly state that no {subcategory} vulnerabilities were detected.\n\nCODE TO ANALYZE:\n```{language}\n{code_snippet}\n```",
+      "performance": "You are an expert {language} performance engineer. Analyze the following code for performance optimizations, focusing specifically on {subcategory}.\n\n{prompt_template}\n\nProvide a detailed analysis with specific line references. If you find issues, explain the performance impact clearly and recommend concrete optimizations with sample code.\n\nIf no issues of this type are found, explicitly state that no {subcategory} performance issues were detected.\n\nCODE TO ANALYZE:\n```{language}\n{code_snippet}\n```",
+      "maintainability": "You are an expert code quality reviewer specializing in {language}. Analyze the following code for maintainability issues, focusing specifically on {subcategory}.\n\n{prompt_template}\n\nProvide a detailed analysis with specific line references. If you find issues, explain why they impact maintainability and recommend concrete improvements with sample code.\n\nIf no issues of this type are found, explicitly state that no {subcategory} maintainability issues were detected.\n\nCODE TO ANALYZE:\n```{language}\n{code_snippet}\n```"
+    }
+  }
+} 
