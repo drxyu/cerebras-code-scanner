@@ -149,6 +149,12 @@ def should_scan_file(file_path, config=None):
     if config is None:
         config = load_config()
     
+    # Check file size - added back with a higher reasonable limit
+    max_file_size = config.get('scanning', {}).get('max_file_size', 100000)  # 100KB default
+    if os.path.getsize(file_path) > max_file_size:
+        print(f"Skipping {file_path}: File exceeds maximum size of {max_file_size} bytes")
+        return False
+    
     # Check excluded directories
     excluded_dirs = config.get('scanning', {}).get('excluded_directories', [])
     for excluded_dir in excluded_dirs:

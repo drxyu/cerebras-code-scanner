@@ -76,8 +76,8 @@ This approach combines the contextual understanding of large language models wit
 
 1. Clone the repository:
    ```
-   git clone https://github.com/yourusername/ai-code-scanner.git
-   cd ai-code-scanner
+   git clone https://github.com/drxyu/cerebras-code-scanner.git
+   cd cerebras-code-scanner
    ```
 
 2. Create a virtual environment:
@@ -88,7 +88,8 @@ This approach combines the contextual understanding of large language models wit
 
 3. Install dependencies:
    ```
-   pip install cerebras-cloud-sdk pyyaml
+   pip install --upgrade cerebras_cloud_sdk
+   pip install pyyaml
    ```
 
 4. Set your Cerebras API key:
@@ -117,6 +118,7 @@ This will:
 - Recursively find all Python files in the directory
 - Skip files in excluded directories (configurable in config.yaml)
 - Skip files that match excluded patterns (configurable in config.yaml)
+- Skip files larger than the maximum size (configurable in config.yaml)
 - Output results organized by file
 
 ## Configuration
@@ -128,6 +130,7 @@ The scanner can be configured using the `config.yaml` file:
   - **model**: Default model to use for analysis
 
 - **scanning**: Scanning configuration
+  - **max_file_size**: Maximum file size to scan in bytes (default 100KB)
   - **excluded_directories**: Directories to exclude from scanning
   - **excluded_files**: File patterns to exclude from scanning
 
