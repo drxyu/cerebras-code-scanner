@@ -2,7 +2,7 @@
 
 ## Project Origin
 
-This project was created during the [Cerebras Llama 4 Hackathon](https://lu.ma/eihdh2gd?tk=GfcyGK) on April 12, 2024. 
+This project was created during the [Cerebras Llama 4 Hackathon](https://lu.ma/eihdh2gd?tk=GfcyGK) on April 12, 2025. 
 
 Inspired by Cerebras's performance and Llama 4's capabilities, this scanner leverages prompt engineering to extract code insights that traditional rule-based tools cannot detect, enabling deeper security and performance analysis.
 
@@ -307,6 +307,9 @@ python cerebras_code_scanner.py path/to/your/project/ --max-tokens 8000
 - pyyaml
 
 ## TEST CASES: 
+
+> **Disclaimer**: The repositories used for testing were randomly selected from Google search results. All copyrights belong to their original owners. If you are an owner of any referenced repository and wish to have it removed from this documentation, please contact us and we will promptly remove it.
+
 1. Self.
     Feedback: 
     ```
@@ -343,6 +346,34 @@ https://github.com/ms4985/BookClubWebApp.git
    - **System Configurations**: Kubernetes YAML, Nginx configs, SSH configs, Apache configs
    - **Build Scripts**: GitHub Actions, Jenkins, CircleCI
 
+## Legal Disclaimer
+
+### No Warranty and Limitation of Liability
+
+THIS SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+### Use at Your Own Risk
+
+The AI-Powered Code Security & Performance Scanner is a tool designed to assist in identifying potential code issues; however:
+
+1. It does not guarantee the discovery of all vulnerabilities, performance issues, or code defects.
+2. Results provided by the scanner are based on AI analysis and may include false positives or miss certain issues.
+3. Users should independently verify all findings and exercise professional judgment when implementing suggested changes.
+4. The scanner is not a substitute for thorough code reviews, security audits, or performance testing by qualified professionals.
+5. The authors and contributors are not responsible for any damage, data loss, or security breaches resulting from the use of this tool or implementation of its suggestions.
+
+### No Endorsement
+
+The use of the AI-Powered Code Security & Performance Scanner to analyze any codebase does not constitute an endorsement, certification, or guarantee of the quality, security, or performance of the analyzed software by the scanner's creators, contributors, or associated entities.
+
+### Third-Party Content
+
+The scanner may reference or analyze third-party code, frameworks, or libraries. Such references do not constitute endorsement of those third parties, and all trademarks and copyrights remain the property of their respective owners.
+
 ## License
 
 MIT
+
+## Copyright
+
+Copyright © 2025 [DrXyu](https://github.com/drxyu). All Rights Reserved.
