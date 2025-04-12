@@ -1,0 +1,23 @@
+# Configuration for Cerebras Code Scanner
+
+# Cerebras API Configuration
+cerebras:
+  api_key: "YOUR_CEREBRAS_API_KEY"  # Better to use environment variable CEREBRAS_API_KEY
+  model: "llama-4-scout-17b-16e-instruct"  # Default model to use
+
+# Scanning Configuration
+scanning:
+  excluded_directories:
+    - "venv"
+    - ".git"
+    - "__pycache__"
+  excluded_files:
+    - "*.pyc"
+    - "*.pyo"
+    - "*.pyd"
+
+# Output Configuration
+output:
+  format: "text"  # Options: text, json, markdown
+  save_to_file: false
+  output_file: "scan_results.md" 

@@ -1,0 +1,16 @@
+{
+    "cerebras_api_key": "${CEREBRAS_API_KEY}",
+    "model_name": "llama-4",
+    "max_chunk_tokens": 4000,
+    "max_response_tokens": 2048,
+    "temperature": 0.2,
+    "top_p": 0.95,
+    "prompts_file": "docs/proprompts.json",
+    "scan_categories": [
+        "Security Flaws",
+        "Performance Issues",
+        "Logical Correctness",
+        "Maintainability",
+        "SQL-specific Performance Tuning"
+    ]
+}

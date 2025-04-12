@@ -1,0 +1,359 @@
+[
+  {
+    "language": "Python",
+    "category": "Security Flaws",
+    "subcategory": "SQL Injection",
+    "prompt_template": "Analyze the following Python code for any SQL injection vulnerabilities. Identify any places where untrusted input is used to construct SQL queries, explain the risk, and suggest safer alternatives (such as parameterized queries).",
+    "output_format": "Markdown bullet list of each issue found, with explanation and recommended fix."
+  },
+  {
+    "language": "Python",
+    "category": "Security Flaws",
+    "subcategory": "OS Command Injection",
+    "prompt_template": "Analyze the following Python code for OS command injection vulnerabilities. Check if any external system commands are executed using user-supplied input (e.g., via os.system or subprocess). If found, explain the vulnerability and recommend how to sanitize inputs or use safer APIs.",
+    "output_format": "Markdown bullet list of each issue found, with explanation and recommendation."
+  },
+  {
+    "language": "Python",
+    "category": "Security Flaws",
+    "subcategory": "Unsafe Deserialization",
+    "prompt_template": "You are a security analyst. Examine the following Python code for unsafe deserialization or unsafe object loading issues (e.g., using pickle or yaml.load on untrusted data). If any are present, describe the security risk and suggest safer handling (such as using safe loaders or avoiding unsafe formats).",
+    "output_format": "Markdown bullet list with each unsafe usage, its risk, and a safer alternative."
+  },
+  {
+    "language": "Python",
+    "category": "Security Flaws",
+    "subcategory": "Plaintext Credentials",
+    "prompt_template": "Analyze the following Python code for any hardcoded secrets or plaintext credentials (such as passwords, API keys, or tokens embedded in the code). If any are found, explain why storing credentials in code is insecure and recommend more secure alternatives (like environment variables or secure vaults).",
+    "output_format": "Markdown bullet list of each found secret with an explanation and a recommended mitigation."
+  },
+  {
+    "language": "Python",
+    "category": "Security Flaws",
+    "subcategory": "Use of eval/exec",
+    "prompt_template": "The following Python snippet may use potentially dangerous functions. Review the code for any use of eval(), exec(), or similar functions that execute dynamically constructed code. Identify any such usage, explain why it may be unsafe (especially with untrusted input), and suggest safer alternatives.",
+    "output_format": "Markdown bullet list for each dangerous usage, with explanation and safer alternative."
+  },
+  {
+    "language": "Python",
+    "category": "Security Flaws",
+    "subcategory": "Path Traversal",
+    "prompt_template": "Examine the following Python code for file path traversal vulnerabilities. Identify any file or directory operations (like open, os.rename, etc.) that use user-provided paths without validation. If found, explain how an attacker could exploit it (e.g., via '../' in the path) and suggest input validation or other mitigations.",
+    "output_format": "Markdown bullet list of each risky file operation, its potential exploit, and recommended fix."
+  },
+  {
+    "language": "Python",
+    "category": "Security Flaws",
+    "subcategory": "Weak Cryptography",
+    "prompt_template": "Analyze the Python code for usage of weak cryptographic practices. Look for any use of outdated or insecure algorithms (like MD5, SHA1, or weak RSA/DES) or short encryption keys. If found, explain why it's considered weak and recommend stronger alternatives or algorithms.",
+    "output_format": "Markdown bullet list of each weak crypto usage, with explanation and recommendation."
+  },
+  {
+    "language": "Python",
+    "category": "Security Flaws",
+    "subcategory": "Insecure Randomness",
+    "prompt_template": "Check the following Python code for insecure randomness usage. Identify any instances where the code uses non-cryptographic random number generators (e.g., random.random) for security-sensitive operations (like generating passwords, tokens, or keys). If found, explain the risk and suggest using cryptographically secure alternatives (like secrets or os.urandom).",
+    "output_format": "Markdown bullet list of each insecure random use, with explanation and recommended secure alternative."
+  },
+  {
+    "language": "SQL",
+    "category": "Security Flaws",
+    "subcategory": "Dynamic SQL Injection",
+    "prompt_template": "Analyze the following SQL code (such as a stored procedure or script) for SQL injection vulnerabilities. Check if it constructs dynamic SQL queries by concatenating user input. If so, explain the injection risk and recommend parameterization or safe execution techniques.",
+    "output_format": "Markdown bullet list describing each injection risk and how to fix it."
+  },
+  {
+    "language": "Python",
+    "category": "Logical Correctness",
+    "subcategory": "Uninitialized Variable",
+    "prompt_template": "Review the following Python code for any variables that are used before being initialized or assigned a value. Identify occurrences where a variable might be referenced without being set (or only conditionally set) and explain why that could cause runtime errors or incorrect behavior.",
+    "output_format": "Markdown bullet list of each uninitialized variable issue and its potential impact."
+  },
+  {
+    "language": "Python",
+    "category": "Logical Correctness",
+    "subcategory": "Faulty Conditional Logic",
+    "prompt_template": "Analyze the Python code for logical correctness in conditional statements. Look for any conditional that always evaluates the same way, unreachable branches, or incorrect logic (for example, using the wrong operator or flawed boolean logic). Describe any issues found and explain the correct intended logic if possible.",
+    "output_format": "Markdown bullet list of each identified logic issue with an explanation."
+  },
+  {
+    "language": "Python",
+    "category": "Logical Correctness",
+    "subcategory": "Misused API Call",
+    "prompt_template": "Analyze the following Python code for misuse of API calls or library functions. Identify any function or method calls that appear to be used incorrectly (e.g., wrong arguments, misunderstanding return values, or improper usage sequence) and explain why it is incorrect and how to fix it.",
+    "output_format": "Markdown bullet list of each misused API call, why it's wrong, and how to correct it."
+  },
+  {
+    "language": "Python",
+    "category": "Logical Correctness",
+    "subcategory": "Off-by-One Error",
+    "prompt_template": "Check the following Python code for off-by-one errors in loops or indexing. Identify any loops whose iteration counts or any array/string indexing operations that might go one element too far or miss the last/first element. If found, explain the error and how to correct the boundary condition.",
+    "output_format": "Markdown bullet list of each off-by-one issue with an explanation and correction."
+  },
+  {
+    "language": "Python",
+    "category": "Logical Correctness",
+    "subcategory": "None Handling",
+    "prompt_template": "Inspect the Python code for potential issues in handling null or None values. Find places where a variable could be None or null but is used as if it were a valid value (leading to AttributeError or TypeError). If any are found, explain the issue and suggest adding proper None checks or default values.",
+    "output_format": "Markdown bullet list of each None-handling issue, with explanation and recommended fix."
+  },
+  {
+    "language": "Python",
+    "category": "Logical Correctness",
+    "subcategory": "Mutable Default Argument",
+    "prompt_template": "Examine the following Python function definitions for mutable default arguments (e.g., default parameter value of [] or {}). Identify any such usage, explain why it can lead to incorrect behavior (e.g., data being shared between calls), and suggest how to fix it (such as using None and initializing inside the function).",
+    "output_format": "Markdown bullet list of each mutable default param issue, with explanation and fix."
+  },
+  {
+    "language": "Python",
+    "category": "Logical Correctness",
+    "subcategory": "Incorrect Operator Usage",
+    "prompt_template": "Analyze the Python code for any incorrect or unintended use of operators. Check for common mistakes such as using 'is' instead of '==' for value comparison, using bitwise operators (&, |) instead of logical operators, or any operator misuse that could lead to logic errors. If found, explain the issue and the correct usage.",
+    "output_format": "Markdown bullet list of each operator misuse, why it's wrong, and the correct approach."
+  },
+  {
+    "language": "SQL",
+    "category": "Logical Correctness",
+    "subcategory": "NULL Comparison",
+    "prompt_template": "Analyze the following SQL code for logical correctness, focusing on NULL handling. Check if there are any comparisons to NULL using '=' or '<>' which will never be true due to SQL's three-valued logic. If such cases exist, explain the issue and suggest using IS NULL/IS NOT NULL instead.",
+    "output_format": "Markdown bullet list of each NULL comparison issue and the suggested correction."
+  },
+  {
+    "language": "SQL",
+    "category": "Logical Correctness",
+    "subcategory": "Missing Join Condition",
+    "prompt_template": "Review the SQL query for correctness in join conditions. Determine if any JOIN statements are missing a proper ON clause or have an incorrect condition that could result in a cartesian product (too many results). If found, describe the issue and its impact on the query results, and suggest the correct join condition.",
+    "output_format": "Markdown bullet list of each join condition issue with explanation and fix."
+  },
+  {
+    "language": "Python",
+    "category": "Performance Inefficiencies",
+    "subcategory": "Nested Loops",
+    "prompt_template": "Analyze the following Python code for performance issues, specifically looking at nested loops. Identify any deeply nested loops or loops that grow in complexity (O(n^2) or worse) that might slow down execution for large inputs. If found, explain why it is inefficient and suggest any possible optimizations or refactoring (e.g., using dictionaries for lookups or breaking out of loops early).",
+    "output_format": "Markdown bullet list of each nested loop issue, why it's inefficient, and a suggestion to improve it."
+  },
+  {
+    "language": "Python",
+    "category": "Performance Inefficiencies",
+    "subcategory": "Redundant Computation",
+    "prompt_template": "Review the Python code for redundant computations or calculations inside loops. Look for cases where the same value is computed multiple times (for example, calling a function or calculating a length on every iteration when it could be done once outside the loop). If found, explain why it hurts performance and how to refactor to avoid unnecessary repetition.",
+    "output_format": "Markdown bullet list of each redundant computation identified, with explanation and optimization suggestion."
+  },
+  {
+    "language": "Python",
+    "category": "Performance Inefficiencies",
+    "subcategory": "Inefficient Data Structure",
+    "prompt_template": "Evaluate the following Python code for inefficient data structure usage. Identify cases where a different data structure would significantly improve performance (e.g., using a list where a set or dict would be faster for lookups, or using an inefficient algorithm due to the choice of structure). If found, explain the issue and recommend a better data structure or approach.",
+    "output_format": "Markdown bullet list of each data structure issue, why it's inefficient, and a recommended improvement."
+  },
+  {
+    "language": "Python",
+    "category": "Performance Inefficiencies",
+    "subcategory": "Inefficient I/O in Loop",
+    "prompt_template": "Check the Python code for inefficient I/O operations inside loops. Identify any instances where file or database operations (or other I/O) are performed inside a loop in a way that could be batched or optimized. If found, explain the performance impact and suggest how to reduce I/O frequency or latency (for example, by aggregating operations or using bulk queries).",
+    "output_format": "Markdown bullet list of each I/O inefficiency, with explanation and suggestions to improve."
+  },
+  {
+    "language": "Python",
+    "category": "Performance Inefficiencies",
+    "subcategory": "Inefficient String Building",
+    "prompt_template": "Analyze the Python code for inefficient string handling patterns. In particular, check for building strings using concatenation in a loop or other suboptimal methods. If such patterns are present, explain why they are inefficient in Python and suggest more efficient techniques (e.g., using join() or using io.StringIO).",
+    "output_format": "Markdown bullet list of each inefficient string handling occurrence, with explanation and a more efficient approach."
+  },
+  {
+    "language": "Python",
+    "category": "Performance Inefficiencies",
+    "subcategory": "Lack of Vectorization",
+    "prompt_template": "Inspect the Python code for opportunities to use more vectorized operations or built-in functions for better performance. Identify any places where heavy computations are done in pure Python loops that could be replaced by optimized library calls (e.g., using sum() instead of a manual loop, or using numpy/pandas operations for large datasets). If found, explain the performance issue and suggest the vectorized alternative.",
+    "output_format": "Markdown bullet list of each opportunity for vectorization, with explanation and recommended changes."
+  },
+  {
+    "language": "Python",
+    "category": "Performance Inefficiencies",
+    "subcategory": "N+1 Database Queries",
+    "prompt_template": "Analyze the following Python code for the \"N+1 queries\" performance anti-pattern. Check if there are database queries (or similar external calls) inside a loop, which can lead to many repetitive calls. If this pattern is found, explain why it is inefficient and suggest how to restructure the code (for example, by combining queries or using joins) to reduce the number of calls.",
+    "output_format": "Markdown bullet list for each occurrence of N+1 queries, explaining the issue and the recommended fix."
+  },
+  {
+    "language": "Python",
+    "category": "Maintainability/Anti-patterns",
+    "subcategory": "Long Function",
+    "prompt_template": "Examine the structure of the following Python code for maintainability issues. Identify if any function is excessively long or doing too many things. If such a long function exists, explain why this is a maintenance problem (harder to read, test, or debug) and suggest how to refactor it into smaller, focused functions or modules.",
+    "output_format": "Markdown bullet list of each long function identified, including why it's problematic and a refactoring suggestion."
+  },
+  {
+    "language": "Python",
+    "category": "Maintainability/Anti-patterns",
+    "subcategory": "Magic Values",
+    "prompt_template": "Analyze the Python code for usage of \"magic values\" or hard-coded constants scattered through the code. Identify any numeric or string literals that are used in multiple places or without explanation. Explain why using magic values can be problematic and recommend defining them as named constants or configuration values for clarity.",
+    "output_format": "Markdown bullet list of each magic value usage found, with explanation and recommendation to improve it."
+  },
+  {
+    "language": "Python",
+    "category": "Maintainability/Anti-patterns",
+    "subcategory": "Inconsistent Naming",
+    "prompt_template": "Check the following Python code for inconsistent naming conventions or unclear naming. Look for variables, functions, or classes with names that do not follow a consistent style (e.g., mixing camelCase and snake_case) or names that are not descriptive. If found, explain why consistent and descriptive naming is important and suggest clearer names or a standard style.",
+    "output_format": "Markdown bullet list of each naming issue, with explanation and suggested improvement."
+  },
+  {
+    "language": "Python",
+    "category": "Maintainability/Anti-patterns",
+    "subcategory": "Duplicate Code",
+    "prompt_template": "Review the Python code for duplicated code blocks or functionality. Identify if the same or very similar code appears in multiple places. If yes, explain why this is an anti-pattern (harder to maintain and prone to bugs) and suggest how to refactor by extracting common code into functions or classes to adhere to DRY (Don't Repeat Yourself) principles.",
+    "output_format": "Markdown bullet list of each duplicated code instance, with explanation and refactoring suggestion."
+  },
+  {
+    "language": "Python",
+    "category": "Maintainability/Anti-patterns",
+    "subcategory": "Lack of Comments",
+    "prompt_template": "Evaluate the Python code for readability and documentation. Determine if complex sections of code lack comments or docstrings. If important logic is not explained, note the absence, and explain why having comments or documentation would improve maintainability. Suggest where and what kind of comments could be added to clarify the code.",
+    "output_format": "Markdown bullet list of each area lacking documentation, with explanation and a suggestion for adding comments."
+  },
+  {
+    "language": "Python",
+    "category": "Maintainability/Anti-patterns",
+    "subcategory": "Deep Nesting",
+    "prompt_template": "Analyze the Python code for deeply nested structures (loops or conditionals) that could hurt readability and maintainability. If you find code blocks with many levels of indentation, explain why this is problematic and suggest ways to simplify the logic (for example, by early returns, splitting into smaller functions, or flattening nested ifs).",
+    "output_format": "Markdown bullet list describing each deeply nested code section and suggestions to simplify it."
+  },
+  {
+    "language": "Python",
+    "category": "Maintainability/Anti-patterns",
+    "subcategory": "Overuse of Globals",
+    "prompt_template": "Check the Python code for overuse of global variables or mutable global state. If the code relies heavily on global variables, explain why this is a maintainability and testing issue (e.g., hidden dependencies, harder to track state) and suggest alternative designs (like passing parameters, using classes, or limiting global usage).",
+    "output_format": "Markdown bullet list of each global usage issue, with explanation and recommended alternative."
+  },
+  {
+    "language": "Python",
+    "category": "Maintainability/Anti-patterns",
+    "subcategory": "No Context Managers",
+    "prompt_template": "Inspect the Python code for proper resource management. Identify any places where files, network connections, or other resources are opened or acquired without using context managers (with statement). If found, explain why not using a context manager (to ensure timely release of resources) is an anti-pattern and show how to rewrite the code using with statements for safety and clarity.",
+    "output_format": "Markdown bullet list of each resource management issue, with explanation and how to use context managers instead."
+  },
+  {
+    "language": "Python",
+    "category": "Maintainability/Anti-patterns",
+    "subcategory": "Excessive Parameters",
+    "prompt_template": "Review the Python functions to see if any have an excessive number of parameters. If you find functions with very many parameters, explain why this can indicate a design problem (making the function hard to use or maintain) and suggest ways to simplify (such as grouping parameters into objects or splitting the function responsibilities).",
+    "output_format": "Markdown bullet list of each function with too many parameters, with explanation and suggestions to improve."
+  },
+  {
+    "language": "SQL",
+    "category": "SQL-specific Performance Tuning",
+    "subcategory": "SELECT * Usage",
+    "prompt_template": "Analyze the SQL query for use of SELECT *. If the query selects all columns using SELECT *, explain why this can be inefficient or problematic (for performance and maintainability) and suggest selecting only needed columns instead.",
+    "output_format": "JSON array with objects for each issue found (fields: issue, explanation, recommendation)."
+  },
+  {
+    "language": "SQL",
+    "category": "SQL-specific Performance Tuning",
+    "subcategory": "Missing Index",
+    "prompt_template": "Review the SQL query for potential missing indexes on columns used in JOIN or WHERE clauses. If the query is filtering or joining on a column that is likely not indexed (especially in a large table), identify it and explain how a missing index could impact performance. Recommend creating an index or optimizing the query to improve performance.",
+    "output_format": "JSON array with objects (fields: issue, explanation, recommendation) for each potential indexing issue."
+  },
+  {
+    "language": "SQL",
+    "category": "SQL-specific Performance Tuning",
+    "subcategory": "Missing WHERE Clause",
+    "prompt_template": "Examine the SQL query for proper filtering. If the query is retrieving data from a large table without a WHERE clause or filter (thus returning or scanning all rows), identify it. Explain why not having a filter can be a performance problem and suggest adding appropriate WHERE conditions to limit data processing when possible.",
+    "output_format": "JSON array with fields issue, explanation, recommendation describing any lack of filtering issues."
+  },
+  {
+    "language": "SQL",
+    "category": "SQL-specific Performance Tuning",
+    "subcategory": "Suboptimal Join Order",
+    "prompt_template": "Analyze the SQL query for join performance. Consider if the join order or strategy might be suboptimal (for example, joining large tables before filtering or joining in a way that creates a large intermediate result). If any such pattern is present, explain the potential performance issue and suggest a better approach (like filtering earlier or reordering joins if possible).",
+    "output_format": "JSON array of any join performance issues found, each with an explanation and suggested improvement."
+  },
+  {
+    "language": "SQL",
+    "category": "SQL-specific Performance Tuning",
+    "subcategory": "Non-SARGable Condition",
+    "prompt_template": "Review the SQL query for non-SARGable conditions (search arguments that prevent index use). Identify if any WHERE clause applies functions to columns (or uses leading wildcards in LIKE) that would prevent an index from being used. If found, explain why it hurts performance and suggest how to rewrite the condition to be index-friendly (for example, transforming the data outside the query or using a different comparison).",
+    "output_format": "JSON array of each non-SARGable condition found, with explanation and recommendation for improvement."
+  },
+  {
+    "language": "SQL",
+    "category": "SQL-specific Performance Tuning",
+    "subcategory": "Missing LIMIT Clause",
+    "prompt_template": "Check if the SQL query is selecting a potentially large result set without a LIMIT/OFFSET or equivalent constraint. If the query could return a huge number of rows and no limiting clause is present, note this. Explain the potential performance and memory impact of retrieving all rows and suggest implementing pagination or limits if appropriate for the use case.",
+    "output_format": "JSON array containing any issues related to missing LIMIT, each with explanation and a recommendation."
+  },
+  {
+    "language": "SQL",
+    "category": "SQL-specific Performance Tuning",
+    "subcategory": "Unnecessary DISTINCT",
+    "prompt_template": "Analyze the SQL query for use of DISTINCT in the SELECT clause. If DISTINCT is used, consider whether it might be employed to compensate for duplicate results from joins or subqueries. Explain the performance cost of using DISTINCT and if possible, suggest alternative query designs (such as fixing join conditions or using aggregations) that could eliminate the need for DISTINCT.",
+    "output_format": "JSON array listing any unnecessary DISTINCT usage, with an explanation and recommended query improvements."
+  },
+  {
+    "language": "SQL",
+    "category": "SQL-specific Performance Tuning",
+    "subcategory": "UNION vs UNION ALL",
+    "prompt_template": "Inspect the SQL script for instances of using UNION where UNION ALL could suffice. If a UNION is used to combine result sets and removing duplicates is not needed, note it. Explain that UNION (without ALL) imposes a sort and deduplication step that can impact performance, and recommend using UNION ALL when duplicates are not a concern.",
+    "output_format": "JSON array of any inefficient UNION usage found, each with explanation and suggestion to use UNION ALL if applicable."
+  },
+  {
+    "language": "Python",
+    "category": "Error Handling",
+    "subcategory": "Broad Exception Catch",
+    "prompt_template": "Review the Python code for exception handling issues. Specifically, look for broad exception catches (e.g., catching Exception or using a bare except). Identify any such instances, explain why catching overly broad exceptions can be problematic (masking errors, difficulty in debugging), and suggest catching more specific exception types or rethrowing appropriately.",
+    "output_format": "Markdown bullet list of each broad exception catch found, with explanation and improvement suggestion."
+  },
+  {
+    "language": "Python",
+    "category": "Error Handling",
+    "subcategory": "Exception Suppression",
+    "prompt_template": "Analyze the Python code for places where exceptions are caught but effectively suppressed or ignored (for example, an empty except block or just logging and continuing). If found, explain why silently ignoring exceptions is dangerous for correctness and debugging. Provide recommendations on proper error handling (such as logging with context, or re-raising after handling).",
+    "output_format": "Markdown bullet list of each suppressed exception issue, with explanation and recommendation for proper handling."
+  },
+  {
+    "language": "Python",
+    "category": "Error Handling",
+    "subcategory": "Lack of Error Handling",
+    "prompt_template": "Check if the Python code performs operations that can fail (file I/O, network calls, database operations, etc.) without appropriate error handling. Identify any such instances where errors aren't caught or handled, and explain the potential consequences (unhandled exceptions, crashes). Suggest how to add error handling or validations to make the code more robust.",
+    "output_format": "Markdown bullet list of each place lacking error handling, with potential impact and suggested solution."
+  },
+  {
+    "language": "SQL",
+    "category": "Error Handling",
+    "subcategory": "Generic Error Handling",
+    "prompt_template": "Review the SQL stored procedure or script for error handling practices. Look for a generic error catch (for example, a broad WHEN OTHERS in PL/SQL or TRY/CATCH in T-SQL that catches all errors) without proper handling or logging. If present, describe why catching all errors without specific handling can be an issue and suggest improving the error handling (such as logging the error and re-throwing or handling specific cases).",
+    "output_format": "Markdown bullet list of each catch-all error handling issue found, with explanation and suggested improvement."
+  },
+  {
+    "language": "Python",
+    "category": "Dependency Risks",
+    "subcategory": "Deprecated Library Usage",
+    "prompt_template": "Analyze the Python code for usage of deprecated or outdated libraries and functions. Identify any imports or function calls that are known to be deprecated in recent versions of the language or frameworks. If found, provide details on the deprecation (why it's deprecated or removed) and recommend the modern alternative or upgrade needed.",
+    "output_format": "JSON array of deprecated usages found, each with an explanation and recommended replacement."
+  },
+  {
+    "language": "Python",
+    "category": "Dependency Risks",
+    "subcategory": "Vulnerable Library Version",
+    "prompt_template": "Inspect the code (and any dependency references it contains) for usage of library versions with known vulnerabilities. If the code references a specific package version (in comments, requirements, or code) or a library known to have security issues in certain versions, note it. Explain the risk associated with that version and advise updating to a secure version.",
+    "output_format": "JSON array with entries for each vulnerable dependency identified, including explanation of the vulnerability and recommended version upgrade."
+  },
+  {
+    "language": "Python",
+    "category": "Dependency Risks",
+    "subcategory": "Insecure Library Usage",
+    "prompt_template": "Check for insecure usage of libraries in the Python code, such as using library functions in an unsafe way. For example, using yaml.load on untrusted data (instead of safe_load) or using a cryptography library with insecure parameters. Identify any such usage, explain the security risk, and suggest the safer usage or configuration.",
+    "output_format": "JSON array listing each insecure library usage, with an explanation and recommendation for safer usage."
+  },
+  {
+    "language": "Python",
+    "category": "Dependency Risks",
+    "subcategory": "Unmaintained Dependency",
+    "prompt_template": "Evaluate if the Python code relies on any third-party libraries or dependencies that are no longer maintained or widely used. This could be indicated by an outdated import or a comment referencing an old library. If found, explain why continuing to use an unmaintained dependency can be risky (lack of updates, security fixes) and recommend considering more modern and maintained alternatives.",
+    "output_format": "JSON array of any unmaintained dependency found, with explanation and recommended alternative."
+  },
+  {
+    "language": "SQL",
+    "category": "Dependency Risks",
+    "subcategory": "Deprecated SQL Feature",
+    "prompt_template": "Analyze the SQL code for any usage of deprecated or outdated SQL features or syntax. Look for constructs that are no longer recommended in the SQL dialect (for example, old join syntax or deprecated functions). If found, identify the deprecated usage, explain why it's outdated, and suggest the modern equivalent or best practice.",
+    "output_format": "JSON array of each deprecated SQL usage, with an explanation and suggested replacement."
+  }
+]
