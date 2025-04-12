@@ -3,7 +3,12 @@ import sys
 import yaml
 import glob
 import fnmatch
+import logging
 from cerebras.cloud.sdk import Cerebras
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 def load_config(config_file='config.yaml'):
     """Load configuration from a YAML file."""
@@ -11,10 +16,10 @@ def load_config(config_file='config.yaml'):
         with open(config_file, 'r') as file:
             return yaml.safe_load(file)
     except FileNotFoundError:
-        print(f"Config file '{config_file}' not found.")
+        logger.error(f"Config file '{config_file}' not found.")
         return {}
     except Exception as e:
-        print(f"Error loading config: {e}")
+        logger.error(f"Error loading config: {e}")
         return {}
 
 def load_scanignore():
@@ -37,11 +42,11 @@ def load_scanignore():
                     line = line.strip()
                     if line and not line.startswith('#'):
                         patterns.append(line)
-            print(f"Loaded {len(patterns)} patterns from .scanignore (global setting)")
+            logger.info(f"Loaded {len(patterns)} patterns from .scanignore (global setting)")
         else:
-            print("No .scanignore file found in script directory. Using default exclusions.")
+            logger.info("No .scanignore file found in script directory. Using default exclusions.")
     except Exception as e:
-        print(f"Error reading .scanignore: {e}")
+        logger.error(f"Error reading .scanignore: {e}")
     
     return patterns
 
@@ -53,8 +58,9 @@ def initialize_cerebras_client():
         api_key = config.get('cerebras', {}).get('api_key')
     
     if not api_key:
-        print("Warning: No Cerebras API key found in environment or config.")
-        print("Please set the CEREBRAS_API_KEY environment variable or add it to config.yaml")
+        logger.error("No Cerebras API key found in environment or config.")
+        logger.error("Please set the CEREBRAS_API_KEY environment variable or add it to config.yaml")
+        raise ValueError("No Cerebras API key found")
     
     return Cerebras(api_key=api_key)
 
@@ -107,7 +113,7 @@ def analyze_code_security(code_snippet, model="llama-4-scout-17b-16e-instruct"):
         
         return chat_completion
     except Exception as e:
-        print(f"Error analyzing code: {e}")
+        logger.error(f"Error analyzing code: {e}")
         return None
 
 def analyze_code_performance(code_snippet, model="llama-4-scout-17b-16e-instruct"):
@@ -158,7 +164,7 @@ def analyze_code_performance(code_snippet, model="llama-4-scout-17b-16e-instruct
         
         return chat_completion
     except Exception as e:
-        print(f"Error analyzing code: {e}")
+        logger.error(f"Error analyzing code: {e}")
         return None
 
 def should_ignore_path(path, ignore_patterns):
@@ -172,7 +178,8 @@ def should_ignore_path(path, ignore_patterns):
     Returns:
         bool: True if the path should be ignored
     """
-    # Get relative path components
+    # Normalize the path to prevent path traversal
+    path = os.path.normpath(path)
     path_parts = path.split(os.sep)
     
     for pattern in ignore_patterns:
@@ -212,6 +219,9 @@ def should_scan_file(file_path, config=None, ignore_patterns=None):
     Returns:
         bool: True if the file should be scanned, False otherwise
     """
+    # Normalize path to prevent path traversal attacks
+    file_path = os.path.abspath(os.path.normpath(file_path))
+    
     if not file_path.endswith('.py'):
         return False
         
@@ -225,21 +235,21 @@ def should_scan_file(file_path, config=None, ignore_patterns=None):
     # Check file size - added back with a higher reasonable limit
     max_file_size = config.get('scanning', {}).get('max_file_size', 100000)  # 100KB default
     if os.path.getsize(file_path) > max_file_size:
-        print(f"Skipping {file_path}: File exceeds maximum size of {max_file_size} bytes")
+        logger.info(f"Skipping {file_path}: File exceeds maximum size of {max_file_size} bytes")
         return False
     
     # Check excluded directories from config
     excluded_dirs = config.get('scanning', {}).get('excluded_directories', [])
     for excluded_dir in excluded_dirs:
         if excluded_dir in file_path:
-            print(f"Skipping {file_path}: In excluded directory {excluded_dir}")
+            logger.info(f"Skipping {file_path}: In excluded directory {excluded_dir}")
             return False
     
     # Check excluded file patterns from config
     excluded_files = config.get('scanning', {}).get('excluded_files', [])
     for pattern in excluded_files:
         if glob.fnmatch.fnmatch(os.path.basename(file_path), pattern):
-            print(f"Skipping {file_path}: Matches excluded pattern {pattern}")
+            logger.info(f"Skipping {file_path}: Matches excluded pattern {pattern}")
             return False
     
     return True
@@ -268,10 +278,10 @@ def scan_directory(directory_path, model="llama-4-scout-17b-16e-instruct"):
                 file_path = os.path.join(root, file)
                 
                 if should_scan_file(file_path, config, ignore_patterns):
-                    print(f"Scanning {file_path}...")
+                    logger.info(f"Scanning {file_path}...")
                     
                     try:
-                        with open(file_path, 'r') as f:
+                        with open(file_path, 'r', encoding='utf-8') as f:
                             code = f.read()
                             
                         security_analysis = analyze_code_security(code, model)
@@ -282,7 +292,7 @@ def scan_directory(directory_path, model="llama-4-scout-17b-16e-instruct"):
                             'performance': performance_analysis.choices[0].message.content if performance_analysis else "Failed to analyze performance issues"
                         }
                     except Exception as e:
-                        print(f"Error processing {file_path}: {e}")
+                        logger.error(f"Error processing {file_path}: {e}")
                         results[file_path] = {
                             'security': f"Error: {str(e)}",
                             'performance': f"Error: {str(e)}"
@@ -320,65 +330,79 @@ def save_results_to_file(results, output_file="scan_results.md"):
         results (dict): Results of the scan organized by file
         output_file (str): Path to the output file
     """
-    with open(output_file, 'w') as f:
-        f.write("# Code Scan Results\n\n")
-        
-        for file_path, analyses in results.items():
-            f.write(f"## {file_path}\n\n")
-            
-            f.write("### Security Analysis\n\n")
-            f.write(analyses['security'])
-            f.write("\n\n")
-            
-            f.write("### Performance Analysis\n\n")
-            f.write(analyses['performance'])
-            f.write("\n\n")
-            
-            f.write("---\n\n")
+    # Sanitize output file path
+    output_file = os.path.abspath(os.path.normpath(output_file))
     
-    print(f"Results saved to {output_file}")
+    try:
+        with open(output_file, 'w', encoding='utf-8') as f:
+            f.write("# Code Scan Results\n\n")
+            
+            for file_path, analyses in results.items():
+                f.write(f"## {file_path}\n\n")
+                
+                f.write("### Security Analysis\n\n")
+                f.write(analyses['security'])
+                f.write("\n\n")
+                
+                f.write("### Performance Analysis\n\n")
+                f.write(analyses['performance'])
+                f.write("\n\n")
+                
+                f.write("---\n\n")
+        
+        logger.info(f"Results saved to {output_file}")
+    except Exception as e:
+        logger.error(f"Error saving results to {output_file}: {e}")
 
 def main():
     """Main function to scan Python files for security and performance issues."""
     if len(sys.argv) < 2:
-        print("Usage: python cerebras_code_scanner.py <path_to_directory_or_file>")
+        logger.error("Usage: python cerebras_code_scanner.py <path_to_directory_or_file>")
         return
     
-    path = sys.argv[1]
-    config = load_config()
-    model = config.get('cerebras', {}).get('model', "llama-4-scout-17b-16e-instruct")
+    try:
+        # Normalize path to prevent path traversal attacks
+        path = os.path.abspath(os.path.normpath(sys.argv[1]))
+        
+        config = load_config()
+        model = config.get('cerebras', {}).get('model', "llama-4-scout-17b-16e-instruct")
+        
+        if os.path.isdir(path):
+            logger.info(f"Scanning directory: {path}")
+            results = scan_directory(path, model)
+            display_results(results)
+            
+            # Save results to file if configured
+            if config.get('output', {}).get('save_to_file', False):
+                output_file = config.get('output', {}).get('output_file', "scan_results.md")
+                save_results_to_file(results, output_file)
+        else:
+            # Maintain backward compatibility for single file scanning
+            try:
+                with open(path, 'r', encoding='utf-8') as file:
+                    code = file.read()
+            except Exception as e:
+                logger.error(f"Error reading file {path}: {e}")
+                return
+            
+            print(f"\n{'=' * 50}")
+            print(f"SECURITY ANALYSIS FOR: {path}")
+            print(f"{'=' * 50}\n")
+            security_analysis = analyze_code_security(code, model)
+            if security_analysis:
+                print(security_analysis.choices[0].message.content)
+            
+            print(f"\n{'=' * 50}")
+            print(f"PERFORMANCE ANALYSIS FOR: {path}")
+            print(f"{'=' * 50}\n")
+            performance_analysis = analyze_code_performance(code, model)
+            if performance_analysis:
+                print(performance_analysis.choices[0].message.content)
+    except Exception as e:
+        logger.error(f"An error occurred: {e}")
+        return 1
     
-    if os.path.isdir(path):
-        print(f"Scanning directory: {path}")
-        results = scan_directory(path, model)
-        display_results(results)
-        
-        # Save results to file if configured
-        if config.get('output', {}).get('save_to_file', False):
-            output_file = config.get('output', {}).get('output_file', "scan_results.md")
-            save_results_to_file(results, output_file)
-    else:
-        # Maintain backward compatibility for single file scanning
-        try:
-            with open(path, 'r') as file:
-                code = file.read()
-        except Exception as e:
-            print(f"Error reading file {path}: {e}")
-            return
-        
-        print(f"\n{'=' * 50}")
-        print(f"SECURITY ANALYSIS FOR: {path}")
-        print(f"{'=' * 50}\n")
-        security_analysis = analyze_code_security(code, model)
-        if security_analysis:
-            print(security_analysis.choices[0].message.content)
-        
-        print(f"\n{'=' * 50}")
-        print(f"PERFORMANCE ANALYSIS FOR: {path}")
-        print(f"{'=' * 50}\n")
-        performance_analysis = analyze_code_performance(code, model)
-        if performance_analysis:
-            print(performance_analysis.choices[0].message.content)
+    return 0
 
 if __name__ == "__main__":
-    main() 
+    sys.exit(main()) 
