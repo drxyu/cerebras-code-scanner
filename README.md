@@ -122,6 +122,7 @@ This approach combines the contextual understanding of large language models wit
    ```
    pip install --upgrade cerebras_cloud_sdk
    pip install pyyaml
+   pip install huggingface_hub python-dotenv
    ```
 
 4. Set your Cerebras API key:
@@ -137,19 +138,19 @@ This approach combines the contextual understanding of large language models wit
 #### Scan a Single File
 
 ```
-python cerebras_code_scanner.py path/to/your/file.py
+python cerebras_code_scanner.py path/to/your/file.py -o results.md
 ```
 
 #### Scan an Entire Directory
 
 ```
-python cerebras_code_scanner.py path/to/your/project/
+python cerebras_code_scanner.py path/to/your/project/ -o results.md
 ```
 
 This will:
 - Recursively find all Python (.py) and SQL (.sql) files in the directory
 - Skip files matching patterns in `.scanignore` (global setting)
-- Output results organized by file
+- Output results organized by file to the specified markdown file
 
 ### Advanced Features
 
@@ -159,41 +160,41 @@ The scanner supports a variety of options for customized analysis:
 
 ```
 # Scan for security issues only
-python cerebras_code_scanner.py path/to/your/project/ --categories security
+python cerebras_code_scanner.py path/to/your/project/ -c security -o results.md
 
 # Scan for performance and maintainability issues
-python cerebras_code_scanner.py path/to/your/project/ --categories performance maintainability
+python cerebras_code_scanner.py path/to/your/project/ -c performance,maintainability -o results.md
 ```
 
 #### Scan for Specific Issues
 
 ```
 # Check only for SQL injection and command injection
-python cerebras_code_scanner.py path/to/your/project/ --subcategories sql-injection command-injection
+python cerebras_code_scanner.py path/to/your/project/ -s sql-injection,command-injection -o results.md
 
 # Check specific performance issues
-python cerebras_code_scanner.py path/to/your/project/ --subcategories nested-loops inefficient-data-structure
-```
-
-#### Legacy Mode
-
-```
-# Use the original scanner behavior (basic security and performance checks)
-python cerebras_code_scanner.py path/to/your/project/ --legacy
+python cerebras_code_scanner.py path/to/your/project/ -s nested-loops,inefficient-data-structure -o results.md
 ```
 
 #### Customizing Output
 
 ```
 # Save results to a specific file
-python cerebras_code_scanner.py path/to/your/project/ --output my_scan_results.md
+python cerebras_code_scanner.py path/to/your/project/ -o my_scan_results.md
+```
+
+#### Enable Verbose Logging
+
+```
+# Run with verbose logging for more details about the scanning process
+python cerebras_code_scanner.py path/to/your/project/ -v -o results.md
 ```
 
 #### Using a Custom Prompt Repository
 
 ```
 # Use a different prompt repository
-python cerebras_code_scanner.py path/to/your/project/ --repository my_custom_prompts.json
+python cerebras_code_scanner.py path/to/your/project/ -r my_custom_prompts.json -o results.md
 ```
 
 ### Extending the Scanner

@@ -255,6 +255,57 @@
           "output_format": "markdown",
           "example_fix": "Keep transactions short and use appropriate isolation levels for the task"
         }
+      ],
+      "maintainability": [
+        {
+          "id": "missing-comments",
+          "name": "Missing Comments",
+          "prompt_template": "Analyze the SQL code for lack of comments or documentation. Identify complex queries, stored procedures, or scripts that lack explanatory comments. Explain why commenting SQL code (especially complex logic) is important for maintainability and suggest where and what type of comments would be beneficial.",
+          "output_format": "markdown",
+          "example_fix": "Add comments to explain the purpose of complex queries and important business logic"
+        },
+        {
+          "id": "inconsistent-naming",
+          "name": "Inconsistent Naming",
+          "prompt_template": "Review the SQL code for inconsistent naming conventions in database objects (tables, columns, procedures, etc.). Identify any inconsistencies in casing, pluralization, abbreviations, or prefixes/suffixes. Explain why consistent naming is important and suggest a standardized naming convention.",
+          "output_format": "markdown",
+          "example_fix": "Standardize naming conventions for all database objects (e.g., snake_case for tables and columns)"
+        },
+        {
+          "id": "redundant-constraints",
+          "name": "Redundant Constraints",
+          "prompt_template": "Check the SQL code for redundant or overlapping constraints (such as indexes, foreign keys, or check constraints). Identify any duplication that adds overhead without providing additional data integrity. Explain why redundant constraints can be problematic and suggest consolidation.",
+          "output_format": "markdown",
+          "example_fix": "Remove duplicate indexes covering the same columns or consolidate them into a single effective index"
+        },
+        {
+          "id": "complex-queries",
+          "name": "Overly Complex Queries",
+          "prompt_template": "Examine the SQL code for overly complex queries with excessive JOINs, nested subqueries, or complex expressions. Identify queries that could be simplified or broken down into smaller parts. Explain why such complexity is hard to maintain and suggest ways to improve readability and maintainability.",
+          "output_format": "markdown",
+          "example_fix": "Break down complex queries into views or smaller, focused queries with clear purposes"
+        },
+        {
+          "id": "hard-coded-values",
+          "name": "Hard-Coded Values",
+          "prompt_template": "Analyze the SQL code for hard-coded values (such as dates, IDs, or status codes) that may need to change in the future. Identify any such values embedded in the code rather than using parameters or reference tables. Explain the maintainability issues and recommend better approaches.",
+          "output_format": "markdown",
+          "example_fix": "Replace hard-coded status values ('active', 'inactive') with references to a status table or parameters"
+        },
+        {
+          "id": "duplicated-code",
+          "name": "Duplicated SQL Code",
+          "prompt_template": "Look for duplicated logic or code patterns in the SQL that could be centralized into views, functions, or stored procedures. Identify repetitive SQL patterns that violate the DRY (Don't Repeat Yourself) principle. Explain why duplicated SQL is problematic and suggest refactoring approaches.",
+          "output_format": "markdown",
+          "example_fix": "Extract common table expressions or repeated logic into reusable views or functions"
+        },
+        {
+          "id": "poor-error-handling",
+          "name": "Poor Error Handling",
+          "prompt_template": "Review the SQL code for inadequate error handling in stored procedures, triggers, or complex scripts. Check for missing TRY-CATCH blocks, improper transaction management, or lack of error logging. Explain the importance of proper error handling and suggest improvements.",
+          "output_format": "markdown",
+          "example_fix": "Add proper TRY-CATCH blocks with appropriate error logging and transaction management"
+        }
       ]
     }
   },

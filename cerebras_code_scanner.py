@@ -7,7 +7,12 @@ import glob
 import fnmatch
 import logging
 import argparse
-from cerebras.cloud.sdk import Cerebras
+import dotenv
+import requests
+from huggingface_hub import InferenceClient
+
+# Load environment variables from .env file
+dotenv.load_dotenv()
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -25,7 +30,7 @@ def load_config(config_file='config.yaml'):
         logger.error(f"Error loading config: {e}")
         return {}
 
-def load_scanignore():
+def load_scanignore(directory):
     """
     Load patterns from .scanignore file in the same directory as the script.
     
@@ -53,19 +58,30 @@ def load_scanignore():
     
     return patterns
 
-def initialize_cerebras_client():
-    """Initialize the Cerebras client with API key from environment or config."""
-    api_key = os.environ.get("CEREBRAS_API_KEY")
+def initialize_client():
+    """
+    Initialize a HuggingFace client using the API key from environment variables.
+    
+    Returns:
+        str: The API key for HuggingFace
+    """
+    # Try to get the API key from environment variables
+    api_key = os.environ.get("HF_API_KEY")
+    
+    # If not found in environment variables, try to load from configuration
     if not api_key:
-        config = load_config()
-        api_key = config.get('cerebras', {}).get('api_key')
+        try:
+            with open(os.path.expanduser("~/.cerebras/config.yaml"), "r") as f:
+                config = yaml.safe_load(f)
+                api_key = config.get("api_key")
+        except (FileNotFoundError, yaml.YAMLError):
+            pass
     
     if not api_key:
-        logger.error("No Cerebras API key found in environment or config.")
-        logger.error("Please set the CEREBRAS_API_KEY environment variable or add it to config.yaml")
-        raise ValueError("No Cerebras API key found")
+        logger.error("No HuggingFace API key found in environment variables or configuration file")
+        sys.exit(1)
     
-    return Cerebras(api_key=api_key)
+    return api_key
 
 def load_prompt_repository(repo_file='prompts_repository.json'):
     """
@@ -171,6 +187,24 @@ def load_prompt_repository(repo_file='prompts_repository.json'):
                             For each issue found, explain the performance problem and suggest an optimization.
                             """,
                             "output_format": "markdown"
+                        },
+                        {
+                            "id": "sql-maintainability-general",
+                            "name": "General SQL Maintainability Analysis",
+                            "prompt_template": """
+                            Analyze the following SQL code for maintainability issues,
+                            focusing on:
+                            1. Missing or inadequate comments
+                            2. Inconsistent naming conventions
+                            3. Overly complex queries
+                            4. Hard-coded values
+                            5. Duplicated code logic
+                            6. Poor error handling
+                            7. Inadequate schema organization
+                            
+                            For each issue found, explain the maintainability concern and suggest an improvement.
+                            """,
+                            "output_format": "markdown"
                         }
                     ]
                 }
@@ -178,7 +212,8 @@ def load_prompt_repository(repo_file='prompts_repository.json'):
             "prompt_generation": {
                 "scanner_template": {
                     "security": "You are an expert code security auditor. Analyze the following {language} code carefully for security issues, focusing on {subcategory}.\n\n{prompt_template}\n\nCODE TO ANALYZE:\n```{language}\n{code_snippet}\n```",
-                    "performance": "You are an expert {language} performance engineer. Analyze the following code for performance optimizations, focusing on {subcategory}.\n\n{prompt_template}\n\nCODE TO ANALYZE:\n```{language}\n{code_snippet}\n```"
+                    "performance": "You are an expert {language} performance engineer. Analyze the following code for performance optimizations, focusing on {subcategory}.\n\n{prompt_template}\n\nCODE TO ANALYZE:\n```{language}\n{code_snippet}\n```",
+                    "maintainability": "You are an expert {language} code reviewer. Analyze the following code for maintainability issues, focusing on {subcategory}.\n\n{prompt_template}\n\nCODE TO ANALYZE:\n```{language}\n{code_snippet}\n```"
                 }
             }
         }
@@ -302,88 +337,97 @@ CODE TO ANALYZE:
         logger.error(f"Error formatting batch prompt: {e}")
         return None, []
 
-def analyze_with_cerebras(prompt, model="llama-4-scout-17b-16e-instruct"):
+def analyze_with_cerebras(prompt, model=None):
     """
-    Send a prompt to the Cerebras API and get the response.
+    Send a prompt to the HuggingFace Inference API.
     
     Args:
         prompt (str): The prompt to send
-        model (str): The Cerebras model to use
+        model (str): Unused parameter, kept for compatibility
         
     Returns:
         dict: The API response
     """
     try:
-        client = initialize_cerebras_client()
+        # Hard-coded model name as specified
+        model_name = "meta-llama/Llama-3.3-70B-Instruct"
+        api_key = initialize_client()
         
-        chat_completion = client.chat.completions.create(
-            messages=[
-                {
-                    "role": "system",
-                    "content": "You are an expert code analyzer specializing in security, performance, and code quality."
-                },
-                {
-                    "role": "user",
-                    "content": prompt,
-                }
-            ],
-            model=model,
+        # Initialize the client with the token
+        client = InferenceClient(token=api_key)
+        
+        logger.info(f"Sending request to HuggingFace Inference API using {model_name} model")
+        
+        # Send the request to the HuggingFace API
+        response = client.text_generation(
+            f"You are an expert code analyzer specializing in security, performance, and code quality.\n\n{prompt}",
+            model=model_name,
+            max_new_tokens=2048,
+            temperature=0.1,
+            top_p=0.95,
         )
         
-        return chat_completion
+        # Create a response object with the same structure as expected by the rest of the code
+        class MockResponse:
+            def __init__(self, response_text):
+                self.choices = [MockChoice(response_text)]
+        
+        class MockChoice:
+            def __init__(self, text):
+                self.message = MockMessage(text)
+        
+        class MockMessage:
+            def __init__(self, content):
+                self.content = content
+        
+        # Return the mock response
+        return MockResponse(response)
+        
     except Exception as e:
-        logger.error(f"Error analyzing code: {e}")
+        logger.error(f"Error analyzing code with HuggingFace: {e}")
         return None
 
-def should_ignore_path(path, ignore_patterns):
+def should_scan_file(file_path):
     """
-    Check if a path should be ignored based on patterns.
-    
-    Args:
-        path (str): Path to check
-        ignore_patterns (list): List of glob patterns to ignore
-        
-    Returns:
-        bool: True if the path should be ignored, False otherwise
-    """
-    if not ignore_patterns:
-        return False
-    
-    # Normalize path for consistent pattern matching
-    normalized_path = os.path.normpath(path)
-    
-    for pattern in ignore_patterns:
-        if fnmatch.fnmatch(normalized_path, pattern) or \
-           fnmatch.fnmatch(os.path.basename(normalized_path), pattern):
-            return True
-    
-    return False
-
-def should_scan_file(file_path, config=None, ignore_patterns=None):
-    """
-    Determine if a file should be scanned based on its extension and ignore patterns.
+    Determine if a file should be scanned based on its extension.
     
     Args:
         file_path (str): Path to the file
-        config (dict, optional): Configuration settings
-        ignore_patterns (list, optional): List of glob patterns to ignore
         
     Returns:
-        tuple: (should_scan, language) where language is 'python', 'sql', or None
+        tuple: (should_scan, language) where should_scan is a boolean and language is 'python', 'sql', or None
     """
-    if should_ignore_path(file_path, ignore_patterns):
-        logger.debug(f"Skipping {file_path} (matches ignore pattern)")
+    # Check if file exists
+    if not os.path.isfile(file_path):
         return False, None
     
-    # Check file extension
-    _, ext = os.path.splitext(file_path.lower())
+    # Get the extension
+    _, ext = os.path.splitext(file_path)
+    ext = ext.lower()
     
+    # Check if it's a supported extension
     if ext == '.py':
         return True, 'python'
     elif ext in ['.sql', '.pgsql', '.tsql', '.plsql']:
         return True, 'sql'
     
     return False, None
+
+def should_ignore_path(path, ignore_patterns):
+    """
+    Check if a path should be ignored based on patterns.
+    
+    Args:
+        path (str): The path to check
+        ignore_patterns (list): List of glob patterns to ignore
+        
+    Returns:
+        bool: True if the path should be ignored, False otherwise
+    """
+    for pattern in ignore_patterns:
+        if fnmatch.fnmatch(path, pattern):
+            return True
+    return False
 
 def split_into_batches(items, max_batch_size=3):
     """
@@ -398,133 +442,91 @@ def split_into_batches(items, max_batch_size=3):
     """
     return [items[i:i + max_batch_size] for i in range(0, len(items), max_batch_size)]
 
-def scan_file(file_path, repository, categories=None, subcategories=None, model="llama-4-scout-17b-16e-instruct", legacy_mode=False):
+def scan_file(file_path, repository=None, categories=None, subcategories=None, legacy_mode=False):
     """
     Scan a single file for issues.
     
     Args:
         file_path (str): Path to the file to scan
         repository (dict): The prompt repository
-        categories (list, optional): List of categories to scan (e.g., ['security', 'performance'])
-        subcategories (list, optional): List of subcategory IDs to scan
-        model (str): The Cerebras model to use
-        legacy_mode (bool): If True, use legacy scanning (just security and performance)
+        categories (list): List of categories to scan
+        subcategories (list): List of subcategories to scan
+        legacy_mode (bool): Use legacy mode
         
     Returns:
-        dict: Results of the scan
+        dict: The scan result
     """
     try:
         # Determine the language
-        _, language = should_scan_file(file_path, ignore_patterns=[])
-        if not language:
-            logger.warning(f"Could not determine language for {file_path}")
+        should_scan, language = should_scan_file(file_path)
+        if not should_scan or not language:
+            logger.warning(f"Skipping {file_path} (unsupported file type)")
             return None
         
-        # Read the file
-        with open(file_path, 'r', encoding='utf-8') as file:
-            code_snippet = file.read()
-        
-        if not code_snippet:
-            logger.warning(f"File {file_path} is empty")
+        # Read the file content
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+        except Exception as e:
+            logger.error(f"Error reading file {file_path}: {e}")
             return None
         
-        results = {
+        # Skip empty files
+        if not content.strip():
+            logger.warning(f"Skipping {file_path} (empty file)")
+            return None
+        
+        # Prepare the result object
+        result = {
             "file_path": file_path,
             "language": language,
             "analyses": []
         }
         
-        # Handle legacy mode (pre-expandable system)
+        # If using legacy mode, use predefined categories
         if legacy_mode:
-            # Legacy mode only uses security and performance categories with general subcategories
-            security_prompt = get_formatted_prompt(
-                repository, language, "security", f"{language}-security-general" if language == "sql" else "security-general", code_snippet
-            )
-            if security_prompt:
-                response = analyze_with_cerebras(security_prompt, model)
-                if response:
-                    results["analyses"].append({
-                        "category": "security",
-                        "subcategory": "Security Analysis",
-                        "subcategory_id": "security-general",
-                        "content": response.choices[0].message.content
-                    })
-            
-            performance_prompt = get_formatted_prompt(
-                repository, language, "performance", f"{language}-performance-general" if language == "sql" else "performance-general", code_snippet
-            )
-            if performance_prompt:
-                response = analyze_with_cerebras(performance_prompt, model)
-                if response:
-                    results["analyses"].append({
-                        "category": "performance",
-                        "subcategory": "Performance Analysis",
-                        "subcategory_id": "performance-general",
-                        "content": response.choices[0].message.content
-                    })
-            
-            return results
+            categories = ["security", "performance"]
+            subcategories = None
         
-        # Enhanced mode with expandable prompts
+        # Get relevant prompts for this language
+        language_prompts = get_prompts_for_language(repository, language, categories, subcategories)
+        if not language_prompts:
+            logger.warning(f"No prompts found for {language} with categories {categories}")
+            return None
         
-        # Default to all categories if none specified
-        if not categories:
-            categories = list(repository["prompt_generation"]["scanner_template"].keys())
+        # Sort prompts by category for consistent results
+        language_prompts.sort(key=lambda x: (x.get("category", ""), x.get("subcategory", "")))
         
-        # Scan for each selected category (group subcategories to reduce API calls)
-        for category in categories:
-            if category not in repository["categories"][language]:
-                logger.warning(f"Category {category} not available for {language}")
-                continue
+        # Group prompts into batches for efficient API usage
+        prompt_batches = split_into_batches(language_prompts, max_batch_size=3)
+        
+        # Process each batch
+        for batch_idx, batch in enumerate(prompt_batches):
+            batch_categories = [p.get("subcategory", "unknown") for p in batch]
+            logger.info(f"Processing batch {batch_idx+1}/{len(prompt_batches)} with {len(batch)} subcategories")
             
-            # Get the subcategories to scan
-            available_subcategories = [entry["id"] for entry in repository["categories"][language][category]]
-            selected_subcategories = subcategories if subcategories else available_subcategories
+            # Generate the prompt for this batch
+            batch_prompt = generate_prompt(file_path, content, language, batch)
             
-            # Intersect with available subcategories
-            selected_subcategories = [sc for sc in selected_subcategories if sc in available_subcategories]
+            # Send the prompt to the API
+            response = analyze_with_cerebras(batch_prompt)
             
-            if not selected_subcategories:
-                continue
-            
-            # Split subcategories into smaller batches to avoid token limits
-            subcategory_batches = split_into_batches(selected_subcategories, max_batch_size=3)
-            logger.info(f"Scanning {file_path} for {language}/{category} with {len(selected_subcategories)} subcategories in {len(subcategory_batches)} batches...")
-            
-            for batch_idx, subcategory_batch in enumerate(subcategory_batches):
-                logger.info(f"Processing batch {batch_idx+1}/{len(subcategory_batches)} with {len(subcategory_batch)} subcategories")
+            # Parse the response
+            if response and hasattr(response, 'choices') and response.choices:
+                response_text = response.choices[0].message.content
                 
-                # Get the batch formatted prompt
-                batch_prompt, subcategory_details = get_batch_formatted_prompt(
-                    repository, language, category, subcategory_batch, code_snippet
-                )
+                # Parse the results for each prompt in the batch
+                batch_analyses = parse_batch_response(response_text, batch)
                 
-                if not batch_prompt or not subcategory_details:
-                    continue
-                
-                # Send to Cerebras (one API call for all subcategories in this batch)
-                response = analyze_with_cerebras(batch_prompt, model)
-                if not response:
-                    continue
-                    
-                # Process the combined response
-                content = response.choices[0].message.content
-                    
-                # Add entry for each subcategory in the batch
-                for subcategory in subcategory_details:
-                    subcategory_id = subcategory['id']
-                    subcategory_name = subcategory['name']
-                    
-                    # Add to results (full response for now, we'll parse it in the output formatter)
-                    analysis = {
-                        "category": category,
-                        "subcategory": subcategory_name,
-                        "subcategory_id": subcategory_id,
-                        "content": content  # Store full response for each subcategory
-                    }
-                    results["analyses"].append(analysis)
+                # Add to the overall results
+                if batch_analyses:
+                    result["analyses"].extend(batch_analyses)
         
-        return results
+        # Empty analyses means no issues found
+        if not result["analyses"]:
+            logger.info(f"No issues found in {file_path}")
+        
+        return result
     except Exception as e:
         logger.error(f"Error scanning file {file_path}: {e}")
         return None
@@ -669,99 +671,68 @@ def get_optimal_batch_size(files, language, max_tokens=6000):
     logger.info(f"Split {len(files)} files into {len(batches)} optimized batches based on token estimates")
     return batches
 
-def scan_directory(directory_path, repository, categories=None, subcategories=None, 
-                  ignore_patterns=None, model="llama-4-scout-17b-16e-instruct", legacy_mode=False, 
-                  files_per_batch=3, max_tokens=6000):
+def scan_directory(directory_path, repository=None, categories=None, subcategories=None, 
+                  ignore_patterns=None, legacy_mode=False, files_per_batch=3, max_tokens=6000):
     """
-    Recursively scan a directory for Python and SQL files.
+    Scan a directory for issues.
     
     Args:
         directory_path (str): Path to the directory to scan
         repository (dict): The prompt repository
-        categories (list, optional): List of categories to scan
-        subcategories (list, optional): List of subcategory IDs to scan
-        ignore_patterns (list, optional): List of glob patterns to ignore
-        model (str): The Cerebras model to use
-        legacy_mode (bool): If True, use legacy scanning
-        files_per_batch (int): Number of files to process in a single batch (used if token-based batching is disabled)
-        max_tokens (int): Maximum token limit for the API (default: 6000)
+        categories (list): List of categories to scan
+        subcategories (list): List of subcategories to scan
+        ignore_patterns (list): List of glob patterns to ignore
+        legacy_mode (bool): Use legacy mode
+        files_per_batch (int): Number of files to process in a batch
+        max_tokens (int): Maximum tokens per API call
         
     Returns:
-        list: Results of the scan
+        list: The scan results
     """
     if ignore_patterns is None:
-        ignore_patterns = load_scanignore()
+        ignore_patterns = []
     
-    logger.info(f"Scanning directory: {directory_path}")
-    logger.info(f"Loaded {len(ignore_patterns)} patterns from .scanignore (global setting)")
-    
-    # Find all Python and SQL files in the directory
-    logger.info(f"Recursively searching for Python and SQL files in {directory_path}...")
-    
-    all_files = []
-    for ext in ['.py', '.sql', '.pgsql', '.tsql', '.plsql']:
-        pattern = os.path.join(directory_path, f"**/*{ext}")
-        all_files.extend(glob.glob(pattern, recursive=True))
-    
-    # Filter out ignored files
-    files_to_scan = []
-    skipped_files = []
-    
-    for file_path in all_files:
-        should_scan, _ = should_scan_file(file_path, ignore_patterns=ignore_patterns)
-        if should_scan:
-            files_to_scan.append(file_path)
-        else:
-            skipped_files.append(file_path)
-    
-    logger.info(f"Scan summary: Found {len(all_files)} Python/SQL files, scanning {len(files_to_scan)}, skipped {len(skipped_files)}")
-    
-    if len(files_to_scan) == 0:
-        if len(all_files) > 0:
-            logger.warning(f"All {len(all_files)} files were skipped due to filters")
-            logger.info("To see which files were skipped, check the .scanignore file or increase log verbosity")
-        else:
-            logger.warning(f"No Python or SQL files found in {directory_path}")
-        return []
-    
-    # Group files by language for batch processing
-    python_files = [f for f in files_to_scan if f.lower().endswith('.py')]
-    sql_files = [f for f in files_to_scan if any(f.lower().endswith(ext) for ext in ['.sql', '.pgsql', '.tsql', '.plsql'])]
-    
-    # Use token-based batching for optimal API usage
-    python_batches = get_optimal_batch_size(python_files, 'python', max_tokens)
-    sql_batches = get_optimal_batch_size(sql_files, 'sql', max_tokens)
-    
-    logger.info(f"Grouped files into {len(python_batches)} Python batches and {len(sql_batches)} SQL batches")
-    
-    # Log detailed information about batches
-    for i, batch in enumerate(python_batches):
-        logger.info(f"Python batch {i+1}: {len(batch)} files ({', '.join([os.path.basename(f) for f in batch])})")
-    for i, batch in enumerate(sql_batches):
-        logger.info(f"SQL batch {i+1}: {len(batch)} files ({', '.join([os.path.basename(f) for f in batch])})")
+    # Try to load .scanignore file if it exists
+    scanignore_patterns = load_scanignore(directory_path)
+    if scanignore_patterns:
+        ignore_patterns.extend(scanignore_patterns)
     
     results = []
     
-    # Process Python file batches
-    if python_batches:
-        for batch_idx, batch in enumerate(python_batches):
-            logger.info(f"Processing Python batch {batch_idx+1}/{len(python_batches)} with {len(batch)} files")
-            batch_results = scan_file_batch(batch, 'python', repository, categories, subcategories, model, legacy_mode)
-            if batch_results:
-                results.extend(batch_results)
-    
-    # Process SQL file batches
-    if sql_batches:
-        for batch_idx, batch in enumerate(sql_batches):
-            logger.info(f"Processing SQL batch {batch_idx+1}/{len(sql_batches)} with {len(batch)} files")
-            batch_results = scan_file_batch(batch, 'sql', repository, categories, subcategories, model, legacy_mode)
-            if batch_results:
-                results.extend(batch_results)
+    # Walk through the directory
+    for root, dirs, files in os.walk(directory_path):
+        # Skip ignored directories
+        dirs[:] = [d for d in dirs if not should_ignore_path(os.path.join(root, d), ignore_patterns)]
+        
+        # Process each file
+        for file in files:
+            file_path = os.path.join(root, file)
+            
+            # Skip if the file should be ignored
+            if should_ignore_path(file_path, ignore_patterns):
+                continue
+            
+            # Check if this is a file type we can scan
+            should_scan, _ = should_scan_file(file_path)
+            if not should_scan:
+                continue
+            
+            # Scan the file
+            result = scan_file(
+                file_path=file_path,
+                repository=repository,
+                categories=categories,
+                subcategories=subcategories,
+                legacy_mode=legacy_mode
+            )
+            
+            if result:
+                results.append(result)
     
     return results
 
 def scan_file_batch(file_batch, language, repository, categories=None, subcategories=None, 
-                   model="llama-4-scout-17b-16e-instruct", legacy_mode=False):
+                   model="google/gemma-7b-it", legacy_mode=False):
     """
     Scan a batch of files of the same language.
     
@@ -771,7 +742,7 @@ def scan_file_batch(file_batch, language, repository, categories=None, subcatego
         repository (dict): The prompt repository
         categories (list, optional): List of categories to scan
         subcategories (list, optional): List of subcategory IDs to scan
-        model (str): The Cerebras model to use
+        model (str): The model to use
         legacy_mode (bool): If True, use legacy scanning
         
     Returns:
@@ -793,6 +764,11 @@ def scan_file_batch(file_batch, language, repository, categories=None, subcatego
     if not categories:
         categories = list(repository["prompt_generation"]["scanner_template"].keys())
     
+    # Log what we're about to process
+    logger.info(f"Processing {len(file_info)} {language} files with categories: {categories}")
+    for file_data in file_info:
+        logger.info(f"  - {file_data['file_path']} (approx. {file_data['size_chars']//4} tokens)")
+    
     # Process each category for the batch of files
     for category in categories:
         if category not in repository["categories"][language]:
@@ -807,6 +783,7 @@ def scan_file_batch(file_batch, language, repository, categories=None, subcatego
         selected_subcategories = [sc for sc in selected_subcategories if sc in available_subcategories]
         
         if not selected_subcategories:
+            logger.warning(f"No valid subcategories found for {language}/{category}")
             continue
         
         # Split subcategories into smaller batches to avoid token limits
@@ -814,7 +791,7 @@ def scan_file_batch(file_batch, language, repository, categories=None, subcatego
         logger.info(f"Scanning batch of {len(file_info)} {language} files for {category} with {len(selected_subcategories)} subcategories in {len(subcategory_batches)} API calls")
         
         for batch_idx, subcategory_batch in enumerate(subcategory_batches):
-            logger.info(f"Processing subcategory batch {batch_idx+1}/{len(subcategory_batches)} with {len(subcategory_batch)} subcategories")
+            logger.info(f"Processing subcategory batch {batch_idx+1}/{len(subcategory_batches)} with {len(subcategory_batch)} subcategories: {subcategory_batch}")
             
             # Create a multi-file batch prompt
             batch_prompt = f"""You are an expert {language} code analyzer specializing in {category} analysis.
@@ -844,6 +821,7 @@ For each file, address these specific areas:
                 batch_prompt += f"\n- **{subcategory_entry['name']}**:\n{subcategory_entry['prompt_template']}\n"
             
             if not subcategory_details:
+                logger.warning(f"No subcategory details found for batch {batch_idx+1}")
                 continue
                 
             batch_prompt += """
@@ -856,15 +834,20 @@ CODE FILES TO ANALYZE:
 """
             batch_prompt += combined_content
             
+            logger.info(f"Sending API request with prompt of {len(batch_prompt)} characters (~{len(batch_prompt)//4} tokens)")
+            
             # Send to Cerebras (one API call for multiple files and multiple subcategories)
             response = analyze_with_cerebras(batch_prompt, model)
             if not response:
+                logger.error(f"No response received from API for batch {batch_idx+1}")
                 continue
                 
             # Process the response
             content = response.choices[0].message.content
+            logger.info(f"Received response of {len(content)} characters (~{len(content)//4} tokens)")
             
             # Extract results for each file
+            files_processed = 0
             for file_data in file_info:
                 file_path = file_data["file_path"]
                 file_marker = file_data["file_marker"]
@@ -876,6 +859,9 @@ CODE FILES TO ANALYZE:
                     logger.warning(f"Could not extract results for {file_path} from the batch response")
                     continue
                 
+                logger.info(f"Extracted {len(file_section)} characters for {file_path}")
+                files_processed += 1
+                
                 # Create or update the result for this file
                 file_result = next((r for r in batch_results if r["file_path"] == file_path), None)
                 
@@ -886,6 +872,7 @@ CODE FILES TO ANALYZE:
                         "analyses": []
                     }
                     batch_results.append(file_result)
+                    logger.info(f"Added new result entry for {file_path}")
                 
                 # Add analyses for each subcategory
                 for subcategory in subcategory_details:
@@ -899,7 +886,11 @@ CODE FILES TO ANALYZE:
                         "content": file_section  # Store the file-specific section
                     }
                     file_result["analyses"].append(analysis)
+                    logger.info(f"Added analysis for {file_path}: {category}/{subcategory_name}")
+            
+            logger.info(f"Processed {files_processed} files from batch {batch_idx+1}")
     
+    logger.info(f"Batch processing complete. Found results for {len(batch_results)} files.")
     return batch_results
 
 def format_results_markdown(results):
@@ -1046,60 +1037,279 @@ def save_results(results, output_file):
         logger.error(f"Error saving results: {e}")
         return False
 
+def get_prompts_for_language(repository, language, categories=None, subcategories=None):
+    """
+    Get relevant prompts for a given language based on categories and subcategories.
+    
+    Args:
+        repository (dict): The prompt repository
+        language (str): The language to get prompts for
+        categories (list): List of categories to include
+        subcategories (list): List of subcategories to include
+        
+    Returns:
+        list: List of prompt configurations
+    """
+    if not repository or not repository.get("categories") or not repository["categories"].get(language):
+        logger.warning(f"No prompts found for language: {language}")
+        return []
+    
+    # Default to all categories if none specified
+    if not categories:
+        categories = list(repository["categories"][language].keys())
+    
+    prompts = []
+    
+    # Gather prompts for each category
+    for category in categories:
+        if category not in repository["categories"][language]:
+            logger.warning(f"Category '{category}' not available for {language}")
+            continue
+        
+        # Get all subcategories for this category
+        available_subcategories = repository["categories"][language][category]
+        
+        # Filter by requested subcategories if specified
+        if subcategories:
+            filtered_subcategories = [sc for sc in available_subcategories 
+                                     if sc["id"] in subcategories]
+        else:
+            filtered_subcategories = available_subcategories
+        
+        # Add prompts for each subcategory
+        for subcategory in filtered_subcategories:
+            prompts.append({
+                "category": category,
+                "subcategory": subcategory["name"],
+                "subcategory_id": subcategory["id"],
+                "prompt_template": subcategory.get("prompt_template"),
+                "output_format": subcategory.get("output_format"),
+                "example_fix": subcategory.get("example_fix")
+            })
+    
+    return prompts
+
+def generate_prompt(file_path, content, language, prompts):
+    """
+    Generate a formatted prompt for a batch of subcategories.
+    
+    Args:
+        file_path (str): Path to the file
+        content (str): Content of the file
+        language (str): The language (python or sql)
+        prompts (list): List of prompt configurations
+        
+    Returns:
+        str: The formatted prompt
+    """
+    file_name = os.path.basename(file_path)
+    
+    # Create the intro section
+    intro = f"""Analyze the following {language.upper()} code from '{file_name}'.
+
+CODE:
+```{language}
+{content}
+```
+
+REQUESTED ANALYSIS: 
+"""
+    
+    # Add each analysis request
+    for i, prompt_config in enumerate(prompts):
+        category = prompt_config["category"]
+        subcategory = prompt_config["subcategory"]
+        prompt_template = prompt_config.get("prompt_template", f"Analyze the code for {subcategory} issues.")
+        
+        intro += f"\n{i+1}. {category.upper()}: {subcategory} - {prompt_template}\n"
+    
+    # Instructions for the output format
+    intro += "\nPlease provide separate analysis sections for each requested analysis, formatted as follows:\n"
+    
+    for i, prompt_config in enumerate(prompts):
+        intro += f"\n## ANALYSIS {i+1}: {prompt_config['category'].upper()}: {prompt_config['subcategory']}\n"
+        
+        if prompt_config.get("output_format"):
+            intro += f"Output format: {prompt_config['output_format']}\n"
+        
+        if prompt_config.get("example_fix"):
+            intro += f"Example fix: {prompt_config['example_fix']}\n"
+    
+    return intro
+
+def parse_batch_response(response_text, prompts):
+    """
+    Parse the response from a batch analysis.
+    
+    Args:
+        response_text (str): The response text from the API
+        prompts (list): The list of prompt configurations
+        
+    Returns:
+        list: List of parsed analyses
+    """
+    analyses = []
+    
+    # Check if we have a response
+    if not response_text:
+        return []
+    
+    # Try to split the response by analysis sections
+    analysis_sections = []
+    
+    # Look for section headers
+    for i, prompt in enumerate(prompts):
+        section_header = f"## ANALYSIS {i+1}: {prompt['category'].upper()}: {prompt['subcategory']}"
+        alt_section_header = f"## ANALYSIS {i+1}:"
+        
+        # Find the section in the response
+        section_start = response_text.find(section_header)
+        if section_start == -1:
+            section_start = response_text.find(alt_section_header)
+            if section_start == -1:
+                continue
+        
+        # Find the start of the next section or the end of text
+        next_section_idx = i + 1
+        if next_section_idx < len(prompts):
+            next_section_header = f"## ANALYSIS {next_section_idx+1}: {prompts[next_section_idx]['category'].upper()}: {prompts[next_section_idx]['subcategory']}"
+            alt_next_section_header = f"## ANALYSIS {next_section_idx+1}:"
+            
+            section_end = response_text.find(next_section_header)
+            if section_end == -1:
+                section_end = response_text.find(alt_next_section_header)
+                if section_end == -1:
+                    section_end = len(response_text)
+        else:
+            section_end = len(response_text)
+        
+        # Extract the section content
+        section_content = response_text[section_start:section_end].strip()
+        
+        # Add to analyses
+        analyses.append({
+            "category": prompt["category"],
+            "subcategory": prompt["subcategory"],
+            "subcategory_id": prompt["subcategory_id"],
+            "content": section_content
+        })
+    
+    # If we couldn't parse sections, use the entire response for each prompt
+    if not analyses:
+        for prompt in prompts:
+            analyses.append({
+                "category": prompt["category"],
+                "subcategory": prompt["subcategory"],
+                "subcategory_id": prompt["subcategory_id"],
+                "content": response_text
+            })
+    
+    return analyses
+
+def format_results(result, output_file):
+    """
+    Format the results as a markdown file.
+    
+    Args:
+        result (dict): The scan results
+        output_file (str): Path to the output file
+        
+    Returns:
+        None
+    """
+    if not result:
+        logger.warning("No results to format")
+        return
+    
+    # Create a markdown string
+    markdown = "# Code Scan Results\n\n"
+    
+    # Add summary
+    file_path = result.get("file_path", "Unknown file")
+    language = result.get("language", "Unknown language")
+    analysis_count = len(result.get("analyses", []))
+    
+    markdown += f"## Summary\n\n"
+    markdown += f"- **File:** {file_path}\n"
+    markdown += f"- **Language:** {language.capitalize()}\n"
+    markdown += f"- **Analysis Count:** {analysis_count}\n\n"
+    
+    # Add each analysis
+    markdown += "## Analysis Results\n\n"
+    
+    for i, analysis in enumerate(result.get("analyses", [])):
+        category = analysis.get("category", "Unknown")
+        subcategory = analysis.get("subcategory", "Unknown")
+        content = analysis.get("content", "No content")
+        
+        markdown += f"### {i+1}. {category.capitalize()}: {subcategory}\n\n"
+        markdown += f"{content}\n\n"
+        markdown += "---\n\n"
+    
+    # Write to file
+    try:
+        with open(output_file, 'w', encoding='utf-8') as f:
+            f.write(markdown)
+        logger.info(f"Results saved to {output_file}")
+    except Exception as e:
+        logger.error(f"Error writing results to {output_file}: {e}")
+
 def main():
-    parser = argparse.ArgumentParser(description="AI-Powered Python/SQL Code Scanner using Cerebras")
-    parser.add_argument("path", help="Path to file or directory to scan")
-    parser.add_argument("-o", "--output", default="scan_results.md", help="Output file path")
-    parser.add_argument("-m", "--model", default="llama-4-scout-17b-16e-instruct", help="Cerebras model to use")
-    parser.add_argument("-r", "--repository", default="prompts_repository.json", help="Path to prompt repository JSON file")
-    parser.add_argument("-c", "--categories", nargs='+', choices=["security", "performance", "maintainability"], 
-                      help="Categories to scan (default: all)")
-    parser.add_argument("-s", "--subcategories", nargs='+', help="Specific subcategories to scan (default: all)")
-    parser.add_argument("-l", "--legacy", action="store_true", help="Use legacy mode (basic security and performance checks only)")
-    parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose logging")
-    parser.add_argument("-b", "--batch-size", type=int, default=3, help="Number of files to process in a single batch (if token-based batching is disabled)")
-    parser.add_argument("-t", "--max-tokens", type=int, default=6000, help="Maximum token limit for API calls (default: 6000)")
+    """Main function to handle command line arguments and run the scanner."""
+    parser = argparse.ArgumentParser(description="Scan code for security and performance issues using AI.")
+    parser.add_argument("path", help="Path to the file or directory to scan")
+    parser.add_argument("-o", "--output", help="Path to the output file (default: output.md)", default="output.md")
+    parser.add_argument("-r", "--repository", help="Path to the prompts repository file", 
+                      default="prompts_repository.json")
+    parser.add_argument("-c", "--categories", help="Categories to scan (comma-separated, default: all)",
+                      default="")
+    parser.add_argument("-s", "--subcategories", help="Subcategories to scan (comma-separated, default: all)",
+                      default="")
+    parser.add_argument("-v", "--verbose", help="Enable verbose logging", action="store_true")
     
     args = parser.parse_args()
     
-    # Set logging level
+    # Set up logging
     if args.verbose:
-        logger.setLevel(logging.DEBUG)
-    
-    # Load the prompt repository
-    repository = load_prompt_repository(args.repository)
-    if not repository:
-        logger.error("Failed to load prompt repository.")
-        return 1
-    
-    # Check if path exists
-    if not os.path.exists(args.path):
-        logger.error(f"Path does not exist: {args.path}")
-        return 1
-    
-    # Scan the path
-    if os.path.isdir(args.path):
-        results = scan_directory(
-            args.path, repository, args.categories, args.subcategories, 
-            model=args.model, legacy_mode=args.legacy, 
-            files_per_batch=args.batch_size,
-            max_tokens=args.max_tokens
-        )
+        logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
     else:
+        logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+    
+    # Set up the prompts repository
+    repository_path = args.repository
+    repository = load_prompt_repository(repository_path)
+    
+    # Parse categories and subcategories
+    categories = args.categories.split(",") if args.categories else []
+    subcategories = args.subcategories.split(",") if args.subcategories else []
+    
+    # Clean up empty strings from split
+    categories = [c for c in categories if c]
+    subcategories = [s for s in subcategories if s]
+    
+    if os.path.isfile(args.path):
+        # Single file scanning
         result = scan_file(
-            args.path, repository, args.categories, args.subcategories, 
-            model=args.model, legacy_mode=args.legacy
+            file_path=args.path,
+            repository=repository,
+            categories=categories,
+            subcategories=subcategories
         )
-        results = [result] if result else []
-    
-    # Save the results
-    if results:
-        save_results(results, args.output)
-        logger.info(f"Scan completed successfully. Results saved to {args.output}")
+        format_results(result, args.output)
+        return 0
+    elif os.path.isdir(args.path):
+        # Directory scanning
+        result = scan_directory(
+            directory_path=args.path,
+            repository=repository,
+            categories=categories,
+            subcategories=subcategories
+        )
+        format_results(result, args.output)
+        return 0
     else:
-        logger.warning("No results found.")
-    
-    return 0
+        logger.error(f"Path not found: {args.path}")
+        return 1
 
 if __name__ == "__main__":
     sys.exit(main()) 
