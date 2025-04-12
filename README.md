@@ -119,7 +119,28 @@ This will:
 - Skip files in excluded directories (configurable in config.yaml)
 - Skip files that match excluded patterns (configurable in config.yaml)
 - Skip files larger than the maximum size (configurable in config.yaml)
+- Skip files that match patterns in `.scanignore` (global setting)
 - Output results organized by file
+
+### Using .scanignore
+
+The scanner uses a `.scanignore` file located in the same directory as the script as a global setting. This file uses the same syntax as `.gitignore` to specify which files and directories to exclude from scanning, regardless of which directory is being scanned:
+
+```
+# Directories to ignore
+venv/
+node_modules/
+__pycache__/
+
+# File patterns to ignore
+*.pyc
+*.pyo
+*.log
+
+# Specific files 
+config_local.py
+test_data.py
+```
 
 ## Configuration
 
@@ -138,6 +159,16 @@ The scanner can be configured using the `config.yaml` file:
   - **format**: Output format (text, json, markdown)
   - **save_to_file**: Whether to save the results to a file
   - **output_file**: File to save the results to
+
+## File Exclusion Priority
+
+When determining which files to scan, the scanner applies exclusion rules in the following order:
+
+1. File extension check (only `.py` files are scanned)
+2. Patterns from `.scanignore` (global setting)
+3. File size limit from config.yaml
+4. Excluded directories from config.yaml
+5. Excluded file patterns from config.yaml
 
 ## Output
 

@@ -2,6 +2,7 @@ import os
 import sys
 import yaml
 import glob
+import fnmatch
 from cerebras.cloud.sdk import Cerebras
 
 def load_config(config_file='config.yaml'):
@@ -15,6 +16,34 @@ def load_config(config_file='config.yaml'):
     except Exception as e:
         print(f"Error loading config: {e}")
         return {}
+
+def load_scanignore():
+    """
+    Load patterns from .scanignore file in the same directory as the script.
+    
+    Returns:
+        list: List of patterns to ignore
+    """
+    # Get the directory where the script is located
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    scanignore_path = os.path.join(script_dir, '.scanignore')
+    patterns = []
+    
+    try:
+        if os.path.exists(scanignore_path):
+            with open(scanignore_path, 'r') as file:
+                for line in file:
+                    # Strip whitespace and skip empty lines and comments
+                    line = line.strip()
+                    if line and not line.startswith('#'):
+                        patterns.append(line)
+            print(f"Loaded {len(patterns)} patterns from .scanignore (global setting)")
+        else:
+            print("No .scanignore file found in script directory. Using default exclusions.")
+    except Exception as e:
+        print(f"Error reading .scanignore: {e}")
+    
+    return patterns
 
 def initialize_cerebras_client():
     """Initialize the Cerebras client with API key from environment or config."""
@@ -132,13 +161,53 @@ def analyze_code_performance(code_snippet, model="llama-4-scout-17b-16e-instruct
         print(f"Error analyzing code: {e}")
         return None
 
-def should_scan_file(file_path, config=None):
+def should_ignore_path(path, ignore_patterns):
     """
-    Check if a file should be scanned based on configuration.
+    Check if a path should be ignored based on .scanignore patterns.
+    
+    Args:
+        path (str): The path to check
+        ignore_patterns (list): Patterns from .scanignore
+        
+    Returns:
+        bool: True if the path should be ignored
+    """
+    # Get relative path components
+    path_parts = path.split(os.sep)
+    
+    for pattern in ignore_patterns:
+        # Handle directory-specific patterns (ends with /)
+        if pattern.endswith('/'):
+            dir_pattern = pattern[:-1]
+            for i in range(len(path_parts)):
+                if fnmatch.fnmatch(path_parts[i], dir_pattern):
+                    return True
+        # Handle file patterns with path components
+        elif '/' in pattern:
+            pattern_parts = pattern.split('/')
+            if len(pattern_parts) <= len(path_parts):
+                match = True
+                for i, part in enumerate(pattern_parts):
+                    if not fnmatch.fnmatch(path_parts[i], part):
+                        match = False
+                        break
+                if match:
+                    return True
+        # Handle simple file patterns
+        else:
+            if fnmatch.fnmatch(os.path.basename(path), pattern):
+                return True
+    
+    return False
+
+def should_scan_file(file_path, config=None, ignore_patterns=None):
+    """
+    Check if a file should be scanned based on configuration and .scanignore.
     
     Args:
         file_path (str): Path to the file
         config (dict): Scanner configuration
+        ignore_patterns (list): Patterns from .scanignore
         
     Returns:
         bool: True if the file should be scanned, False otherwise
@@ -149,20 +218,24 @@ def should_scan_file(file_path, config=None):
     if config is None:
         config = load_config()
     
+    # Check against .scanignore patterns first - silently skip matches
+    if ignore_patterns and should_ignore_path(file_path, ignore_patterns):
+        return False
+    
     # Check file size - added back with a higher reasonable limit
     max_file_size = config.get('scanning', {}).get('max_file_size', 100000)  # 100KB default
     if os.path.getsize(file_path) > max_file_size:
         print(f"Skipping {file_path}: File exceeds maximum size of {max_file_size} bytes")
         return False
     
-    # Check excluded directories
+    # Check excluded directories from config
     excluded_dirs = config.get('scanning', {}).get('excluded_directories', [])
     for excluded_dir in excluded_dirs:
         if excluded_dir in file_path:
             print(f"Skipping {file_path}: In excluded directory {excluded_dir}")
             return False
     
-    # Check excluded file patterns
+    # Check excluded file patterns from config
     excluded_files = config.get('scanning', {}).get('excluded_files', [])
     for pattern in excluded_files:
         if glob.fnmatch.fnmatch(os.path.basename(file_path), pattern):
@@ -185,13 +258,16 @@ def scan_directory(directory_path, model="llama-4-scout-17b-16e-instruct"):
     config = load_config()
     results = {}
     
+    # Load patterns from .scanignore
+    ignore_patterns = load_scanignore()
+    
     # Get all Python files recursively
     for root, _, files in os.walk(directory_path):
         for file in files:
             if file.endswith('.py'):
                 file_path = os.path.join(root, file)
                 
-                if should_scan_file(file_path, config):
+                if should_scan_file(file_path, config, ignore_patterns):
                     print(f"Scanning {file_path}...")
                     
                     try:
