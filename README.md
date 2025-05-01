@@ -4,7 +4,7 @@
 
 This project was created during the [Cerebras Llama 4 Hackathon](https://lu.ma/eihdh2gd?tk=GfcyGK) on April 12, 2025.   
 
-(Updated:  🏆 One of 5 prize winners! 🏆  \m/_(>.<)_\m/ )
+(Updated:  🏆 One of 5 prize winners! 🏆  `\m/_(>.<)_\m/` )
 
 Inspired by Cerebras's performance and Llama 4's capabilities, this scanner leverages prompt engineering to extract code insights that traditional rule-based tools cannot detect, enabling deeper security and performance analysis.
 
